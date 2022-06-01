@@ -5,8 +5,7 @@ desida
 Introduction
 ------------
 
-Placeholder.
-
+Scripts and configuration for DESI Data Assemblies and Releases.
 
 Change Log
 ----------

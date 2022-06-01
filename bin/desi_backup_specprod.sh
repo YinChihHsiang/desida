@@ -6,19 +6,29 @@
 function usage() {
     local execName=$(basename $0)
     (
-    echo "${execName} [-B] [-h] [-t] [-v] SPECPROD"
+    echo "${execName} [-h] [-t] [-v] [-V] SPECPROD"
     echo ""
     echo "Prepare an entire spectroscopic reduction (SPECPROD) for tape backup."
     echo ""
     echo "Assuming files are on disk are in a clean, archival state, this script"
-    echo "will create checksum files and perform tape backups of the entire"
-    echo "data set."
+    echo "will create checksum files for the entire data set."
     echo ""
-    echo "    -B = Do NOT attempt any HPSS backups; checksum only."
     echo "    -h = Print this message and exit."
-    echo "    -t = Test mode.  Do not actually make any changes."
+    echo "    -t = Test mode.  Do not actually make any changes. Implies -v."
     echo "    -v = Verbose mode. Print extra information."
-    # echo "    -V = Version.  Print a version string and exit."
+    echo "    -V = Version.  Print a version string and exit."
+    ) >&2
+}
+#
+# Version string.
+#
+function version() {
+    local execName=$(basename $0)
+    (
+    cd ${DESIDA}
+    local tags=$(git describe --tags --dirty --always | cut -d- -f1)
+    local revs=$(git rev-list --count HEAD)
+    echo "${execName} version: ${tags}.dev${revs}"
     ) >&2
 }
 #
@@ -50,44 +60,16 @@ function validate() {
     (( n_files == n_lines + 1 )) && sha256sum --status --check ${checksum}
 }
 #
-# Create a backup job for submission to xfer.
-#
-function generate_backup_job() {
-    local directory=$1
-    local d=$(dirname ${directory})
-    local b=$(basename ${directory})
-    local hsi_directory=desi/spectro/redux/${SPECPROD}/${d}
-    [[ "${d}" == "." ]] && hsi_directory=desi/spectro/redux/${SPECPROD}
-    local tar_directory=$(basename ${directory})
-    [[ "${b}" == "files" ]] && tar_directory="$2"
-    local job_name=redux_${SPECPROD}_$(tr '/', '_' <<<${directory})
-    cat > ${HOME}/jobs/${job_name}.sh <<EOT
-#!/bin/bash
-#SBATCH --account=desi
-#SBATCH --qos=xfer
-#SBATCH --time=12:00:00
-#SBATCH --mem=10GB
-#SBATCH --job-name=${job_name}
-#SBATCH --licenses=cfs
-cd /global/cfs/cdirs/${hsi_directory}
-hsi mkdir -p ${hsi_directory}
-htar -cvf ${hsi_directory}/${job_name}.tar -H crc:verify=all ${tar_directory}
-[[ \$? == 0 ]] && mv -v ${HOME}/jobs/${job_name}.sh ${HOME}/jobs/done
-EOT
-    chmod +x ${HOME}/jobs/${job_name}.sh
-}
-#
 # Get options.
 #
-backup=true
 test=false
 verbose=false
-while getopts Bhtv argname; do
+while getopts htvV argname; do
     case ${argname} in
-        B) backup=false ;;
         h) usage; exit 0 ;;
-        t) test=true ;;
+        t) test=true; verbose=true ;;
         v) verbose=true ;;
+        V) version; exit 0 ;;
         *) usage; exit 1 ;;
     esac
 done
@@ -100,16 +82,6 @@ export SPECPROD=$1
 if [[ ! -d ${DESI_SPECTRO_REDUX}/${SPECPROD} ]]; then
     echo "ERROR: ${DESI_SPECTRO_REDUX}/${SPECPROD} does not exist!"
     exit 1
-fi
-#
-# Find out what is already on HPSS.
-#
-if ${backup}; then
-    hpss_cache=${SCRATCH}/redux_${SPECPROD}.txt
-    [[ -f ${hpss_cache} ]] && rm -f ${hpss_cache}
-    ${verbose} && echo "DEBUG: hsi -O ${hpss_cache} ls -D -R desi/spectro/redux/${SPECPROD}"
-    hsi -O ${hpss_cache} ls -D -R desi/spectro/redux/${SPECPROD}
-    grep -q ${SPECPROD}: ${hpss_cache} || hsi mkdir -p desi/spectro/redux/${SPECPROD}
 fi
 #
 # Top-level files
@@ -127,14 +99,6 @@ else
     ${test}    || sha256sum exposures-${SPECPROD}.* tiles-${SPECPROD}.* > ${SCRATCH}/redux_${SPECPROD}.sha256sum
     ${verbose} && echo "DEBUG: unlock_and_move redux_${SPECPROD}.sha256sum"
     ${test}    || unlock_and_move redux_${SPECPROD}.sha256sum
-    if ${backup}; then
-        if (grep -q redux_${SPECPROD}_files.tar ${hpss_cache} && grep -q redux_${SPECPROD}_files.tar.idx ${hpss_cache}); then
-            echo "INFO: redux_${SPECPROD}_files.tar already exists."
-        else
-            ${verbose} && echo "DEBUG: generate_backup_job files \"exposures-${SPECPROD}.* tiles-${SPECPROD}.* *.sha256sum\""
-            ${test}    || generate_backup_job files "exposures-${SPECPROD}.* tiles-${SPECPROD}.* *.sha256sum"
-        fi
-    fi
 fi
 #
 # tilepix.* files in healpix directory
@@ -151,15 +115,6 @@ else
     ${test}    || sha256sum tilepix.* > ${SCRATCH}/redux_${SPECPROD}_healpix.sha256sum
     ${verbose} && echo "DEBUG: unlock_and_move redux_${SPECPROD}_healpix.sha256sum"
     ${test}    || unlock_and_move redux_${SPECPROD}_healpix.sha256sum
-    if ${backup}; then
-        grep -q ${SPECPROD}/healpix: ${hpss_cache} || hsi mkdir -p desi/spectro/redux/${SPECPROD}/healpix
-        if (grep -q redux_${SPECPROD}_healpix_files.tar ${hpss_cache} && grep -q redux_${SPECPROD}_healpix_files.tar.idx ${hpss_cache}); then
-            echo "INFO: redux_${SPECPROD}_healpix_files.tar already exists."
-        else
-            ${verbose} && echo "DEBUG: generate_backup_job healpix/files 'tilepix.* *.sha256sum'"
-            ${test}    || generate_backup_job healpix/files 'tilepix.* *.sha256sum'
-        fi
-    fi
 fi
 cd ..
 #
@@ -184,14 +139,6 @@ for d in calibnight exposure_tables; do
         cd ..
     done
     cd ..
-    if ${backup}; then
-        if (grep -q redux_${SPECPROD}_${d}.tar ${hpss_cache} && grep -q redux_${SPECPROD}_${d}.tar.idx ${hpss_cache}); then
-            ${verbose} && echo "INFO: redux_${SPECPROD}_${d}.tar already exists."
-        else
-            ${verbose} && echo "DEBUG: generate_backup_job ${d}"
-            ${test}    || generate_backup_job ${d}
-        fi
-    fi
 done
 #
 # processing_tables, run, zcatalog
@@ -216,23 +163,12 @@ for d in processing_tables run zcatalog; do
         ${test}    || unlock_and_move redux_${SPECPROD}_${d}.sha256sum
     fi
     cd ..
-    if ${backup}; then
-        if (grep -q redux_${SPECPROD}_${d}.tar ${hpss_cache} && grep -q redux_${SPECPROD}_${d}.tar.idx ${hpss_cache}); then
-            ${verbose} && echo "INFO: redux_${SPECPROD}_${d}.tar already exists."
-        else
-            ${verbose} && echo "DEBUG: generate_backup_job ${d}"
-            ${test}    || generate_backup_job ${d}
-        fi
-    fi
 done
 #
 # exposures, preproc
 #
 for d in exposures preproc; do
     cd ${d}
-    if ${backup}; then
-        grep -q ${SPECPROD}/${d}: ${hpss_cache} || hsi mkdir -p desi/spectro/redux/${SPECPROD}/${d}
-    fi
     for night in *; do
         cd ${night}
         for expid in *; do
@@ -256,14 +192,6 @@ for d in exposures preproc; do
             fi
         done
         cd ..
-        if ${backup}; then
-            if (grep -q redux_${SPECPROD}_${d}_${night}.tar ${hpss_cache} && grep -q redux_${SPECPROD}_${d}_${night}.tar.idx ${hpss_cache}); then
-                ${verbose} && echo "INFO: redux_${SPECPROD}_${d}_${night}.tar already exists."
-            else
-                ${verbose} && echo "DEBUG: generate_backup_job ${d}/${night}"
-                ${test}    || generate_backup_job ${d}/${night}
-            fi
-        fi
     done
     cd ..
 done
@@ -272,14 +200,8 @@ done
 #
 for d in healpix tiles; do
     cd ${d}
-    if ${backup}; then
-        grep -q ${SPECPROD}/${d}: ${hpss_cache} || hsi mkdir -p desi/spectro/redux/${SPECPROD}/${d}
-    fi
     for group in *; do
         if [[ -d ${group} ]]; then
-            if ${backup}; then
-                grep -q ${SPECPROD}/${d}/${group}: ${hpss_cache} || hsi mkdir -p desi/spectro/redux/${SPECPROD}/${d}/${group}
-            fi
             for dd in $(find ${group} -type d); do
                 has_files=$(find ${dd} -maxdepth 1 -type f)
                 if [[ -n "${has_files}" ]]; then
@@ -306,34 +228,6 @@ for d in healpix tiles; do
                     cd ${home}/${d}
                 fi
             done
-            if ${backup}; then
-                cd ${group}
-                if [[ "${d}" == "healpix" ]]; then
-                    for obs in *; do
-                        grep -q ${SPECPROD}/${d}/${group}/${obs}: ${hpss_cache} || hsi mkdir -p desi/spectro/redux/${SPECPROD}/${d}/${group}/${obs}
-                        cd ${obs}
-                        for pixgroup in *; do
-                            if (grep -q redux_${SPECPROD}_${d}_${group}_${obs}_${pixgroup}.tar ${hpss_cache} && grep -q redux_${SPECPROD}_${d}_${group}_${obs}_${pixgroup}.tar.idx ${hpss_cache}); then
-                                ${verbose} && echo "INFO: redux_${SPECPROD}_${d}_${group}_${obs}_${pixgroup}.tar already exists."
-                            else
-                                ${verbose} && echo "DEBUG: generate_backup_job ${d}/${group}/${obs}/${pixgroup}"
-                                ${test}    || generate_backup_job ${d}/${group}/${obs}/${pixgroup}
-                            fi
-                        done
-                        cd ..
-                    done
-                else
-                    for tileid in *; do
-                        if (grep -q redux_${SPECPROD}_${d}_${group}_${tileid}.tar ${hpss_cache} && grep -q redux_${SPECPROD}_${d}_${group}_${tileid}.tar.idx ${hpss_cache}); then
-                            ${verbose} && echo "INFO: redux_${SPECPROD}_${d}_${group}_${tileid}.tar already exists."
-                        else
-                            ${verbose} && echo "DEBUG: generate_backup_job ${d}/${group}/${tileid}"
-                            ${test}    || generate_backup_job ${d}/${group}/${tileid}
-                        fi
-                    done
-                fi
-                cd ..
-            fi
         fi
     done
     cd ..
