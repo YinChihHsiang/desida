@@ -62,6 +62,11 @@ for night in ${DESI_SPECTRO_DATA}/*; do
           ${n} == 20210610 ]]; then
         echo "INFO: Processing night=${n}."
     fi
+    for expid in ${DESI_SPECTRO_DATA}/${n}/*; do
+        e=$(basename ${expid})
+        echo "INFO: Processing expid=${e}."
+        
+    done
 done
 #
 # verify checksums for each expid
