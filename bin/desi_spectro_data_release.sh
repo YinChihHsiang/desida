@@ -2,7 +2,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst.
 #
 if [[ -z "${DESIDA}" ]]; then
-    echo "DESIDA is undefined!"
+    echo "ERROR: DESIDA is undefined!"
     exit 1
 fi
 source ${DESIDA}/bin/desida_library.sh
@@ -45,3 +45,25 @@ if [[ $# < 1 ]]; then
     exit 1
 fi
 release=$1
+if [[ -z "${DESI_SPECTRO_DATA}" ]]; then
+    echo "ERROR: DESI_SPECTRO_DATA is undefined!"
+    exit 1
+fi
+#
+# Loop over NIGHT.
+#
+for night in ${DESI_SPECTRO_DATA}/*; do
+    if [[ ${night} < 20210514 || \\
+          ${night} == 20210517 || \\
+          ${night} == 20210518 || \\
+          ${night} == 20210521 || \\
+          ${night} == 20210529 || \\
+          ${night} == 20210610 ]]; then
+        echo "INFO: Processing night=${night}."
+    fi
+done
+#
+# verify checksums for each expid
+# if any checksum changes, redo backups
+# Double-check permissions.
+# Move night.

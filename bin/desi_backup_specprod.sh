@@ -2,7 +2,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst.
 #
 if [[ -z "${DESIDA}" ]]; then
-    echo "DESIDA is undefined!"
+    echo "ERROR: DESIDA is undefined!"
     exit 1
 fi
 source ${DESIDA}/bin/desida_library.sh
