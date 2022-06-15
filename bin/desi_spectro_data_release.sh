@@ -49,6 +49,9 @@ if [[ -z "${DESI_SPECTRO_DATA}" ]]; then
     echo "ERROR: DESI_SPECTRO_DATA is undefined!"
     exit 1
 fi
+redo=${SCRATCH}/redo_nights.txt
+[[ -f ${redo} ]] && /bin/rm -f ${redo}
+touch ${redo}
 #
 # Loop over NIGHT.
 #
@@ -63,16 +66,32 @@ for night in ${DESI_SPECTRO_DATA}/*; do
         echo "INFO: Processing night=${n}."
         for expid in ${DESI_SPECTRO_DATA}/${n}/*; do
             e=$(basename ${expid})
-            echo "INFO: Processing expid=${e}."
-            if [[ -f ${expid}/checksum-${n}-${e}.sha256sum ]]; then
-                echo "DEBUG: ${expid}/checksum-${n}-${e}.sha256sum exists."
-            elif [[ -f ${expid}/checksum-${e}.sha256sum ]]; then
-                echo "DEBUG ${expid}/checksum-${e}.sha256sum exists."
+            ${verbose} && echo "DEBUG: Processing expid=${e}."
+            c=checksum-${e}.sha256sum
+            if [[ -f ${expid}/${c} ]]; then
+                ${verbose} && echo "DEBUG: ${expid}/${c} exists."
+            elif [[ -f ${expid}/checksum-${n}-${e}.sha256sum ]]; then
+                c=checksum-${n}-${e}.sha256sum
+                ${verbose} && echo "DEBUG: ${expid}/checksum-${c}.sha256sum exists."
             else
                 echo "WARNING: ${expid} has no checksum file!"
+                ${verbose} && echo "DEBUG: echo ${n} >> ${redo}"
+                ${verbose} && echo "DEBUG: (cd ${expid} && sha256sum * > ${SCRATCH}/${c} && unlock_and_move ${c})"
+            fi
+            ${verbose} && echo "DEBUG: (cd ${expid} && validate ${c})"
+            ${test}    || (cd ${expid} && validate ${c})
+            if [[ $? != 0 ]]; then
+                echo "WARNING: Error detected for ${expid}/${c}!"
+                ${verbose} && echo "DEBUG: echo ${n} >> ${redo}"
             fi
         done
     fi
+done
+#
+# Redo backups of changed nights
+#
+for n in $(cat ${redo} | sort -n | uniq); do
+    echo "htar -cvf desi/spectro/data/desi_spectro_data_${n}.tar -H crc:verify=all ${n}"
 done
 #
 # verify checksums for each expid
