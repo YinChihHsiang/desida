@@ -53,13 +53,14 @@ fi
 # Loop over NIGHT.
 #
 for night in ${DESI_SPECTRO_DATA}/*; do
-    if [[ ${night} < 20210514 || \\
-          ${night} == 20210517 || \\
-          ${night} == 20210518 || \\
-          ${night} == 20210521 || \\
-          ${night} == 20210529 || \\
-          ${night} == 20210610 ]]; then
-        echo "INFO: Processing night=${night}."
+    n=$(basename ${night})
+    if [[ ${n} < 20210514 || \
+          ${n} == 20210517 || \
+          ${n} == 20210518 || \
+          ${n} == 20210521 || \
+          ${n} == 20210529 || \
+          ${n} == 20210610 ]]; then
+        echo "INFO: Processing night=${n}."
     fi
 done
 #
