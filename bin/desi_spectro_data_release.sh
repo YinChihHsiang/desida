@@ -61,12 +61,18 @@ for night in ${DESI_SPECTRO_DATA}/*; do
           ${n} == 20210529 || \
           ${n} == 20210610 ]]; then
         echo "INFO: Processing night=${n}."
+        for expid in ${DESI_SPECTRO_DATA}/${n}/*; do
+            e=$(basename ${expid})
+            echo "INFO: Processing expid=${e}."
+            if [[ -f ${expid}/checksum-${n}-${e}.sha256sum ]]; then
+                echo "DEBUG: ${expid}/checksum-${n}-${e}.sha256sum exists."
+            elif [[ -f ${expid}/checksum-${e}.sha256sum ]]; then
+                echo "DEBUG ${expid}/checksum-${e}.sha256sum exists."
+            else
+                echo "WARNING: ${expid} has no checksum file!"
+            fi
+        done
     fi
-    for expid in ${DESI_SPECTRO_DATA}/${n}/*; do
-        e=$(basename ${expid})
-        echo "INFO: Processing expid=${e}."
-        
-    done
 done
 #
 # verify checksums for each expid
