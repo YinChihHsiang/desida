@@ -72,7 +72,7 @@ for night in ${DESI_SPECTRO_DATA}/*; do
                 ${verbose} && echo "DEBUG: ${expid}/${c} exists."
             elif [[ -f ${expid}/checksum-${n}-${e}.sha256sum ]]; then
                 c=checksum-${n}-${e}.sha256sum
-                ${verbose} && echo "DEBUG: ${expid}/checksum-${c}.sha256sum exists."
+                ${verbose} && echo "DEBUG: ${expid}/${c} exists."
             else
                 echo "WARNING: ${expid} has no checksum file!"
                 ${verbose} && echo "DEBUG: echo ${n} >> ${redo}"
@@ -100,10 +100,24 @@ done
 # Redo backups of changed nights
 #
 for n in $(cat ${redo} | sort -n | uniq); do
-    echo "htar -cvf desi/spectro/data/desi_spectro_data_${n}.tar -H crc:verify=all ${n}"
+    job_name=desi_spectro_data_${n}
+    cat > ${HOME}/jobs/${job_name}.sh <<EOT
+#!/bin/bash
+#SBATCH --account=desi
+#SBATCH --qos=xfer
+#SBATCH --time=12:00:00
+#SBATCH --mem=10GB
+#SBATCH --job-name=${job_name}
+#SBATCH --licenses=cfs
+cd ${DESI_SPECTRO_DATA}
+htar -cvf desi/spectro/data/${job_name}.tar -H crc:verify=all ${n}
+[[ \$? == 0 ]] && mv -v /global/homes/d/desi/jobs/${job_name}.sh /global/homes/d/desi/jobs/done
+EOT
+
 done
 #
 # verify checksums for each expid
 # if any checksum changes, redo backups
 # Double-check permissions.
 # Move night.
+#
