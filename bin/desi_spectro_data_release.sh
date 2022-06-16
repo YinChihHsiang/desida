@@ -76,13 +76,22 @@ for night in ${DESI_SPECTRO_DATA}/*; do
             else
                 echo "WARNING: ${expid} has no checksum file!"
                 ${verbose} && echo "DEBUG: echo ${n} >> ${redo}"
+                ${test}    || echo ${n} >> ${redo}
                 ${verbose} && echo "DEBUG: (cd ${expid} && sha256sum * > ${SCRATCH}/${c} && unlock_and_move ${c})"
+                ${test}    || (cd ${expid} && sha256sum * > ${SCRATCH}/${c} && unlock_and_move ${c})
             fi
             ${verbose} && echo "DEBUG: (cd ${expid} && validate ${c})"
             ${test}    || (cd ${expid} && validate ${c})
-            if [[ $? != 0 ]]; then
-                echo "WARNING: Error detected for ${expid}/${c}!"
+            if [[ $? == 0 ]]; then
+                ${verbose} && echo "DEBUG: ${expid}/${c} is valid."
+            elif [[ $? == 17 ]]; then
+                echo "WARNING: File number mismatch in ${expid}/${c}!"
                 ${verbose} && echo "DEBUG: echo ${n} >> ${redo}"
+                ${test}    || echo ${n} >> ${redo}
+            else
+                echo "WARNING: Checksum error detected for ${expid}/${c}!"
+                ${verbose} && echo "DEBUG: echo ${n} >> ${redo}"
+                ${test}    || echo ${n} >> ${redo}
             fi
         done
     fi

@@ -43,5 +43,6 @@ function validate() {
     [[ -n "$2" ]] && depth=''
     local n_files=$(find . ${depth} -not -type d | wc -l)
     local n_lines=$(cat ${checksum} | wc -l)
-    (( n_files == n_lines + 1 )) && sha256sum --status --check ${checksum}
+    (( n_files == n_lines + 1 )) || return 17
+    sha256sum --status --check ${checksum}
 }
