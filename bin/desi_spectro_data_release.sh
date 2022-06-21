@@ -12,13 +12,14 @@ source ${DESIDA}/bin/desida_library.sh
 function usage() {
     local execName=$(basename $0)
     (
-    echo "${execName} [-h] [-t] [-v] [-V] RELEASE"
+    echo "${execName} [-h] [-j] [-t] [-v] [-V] RELEASE"
     echo ""
     echo "Prepare raw data (DESI_SPECTRO_DATA) for release."
     echo ""
     echo "Verify checksums, redo tape backups if necessary."
     echo ""
     echo "         -h = Print this message and exit."
+    echo "         -j = Generate tape backup jobs."
     echo "         -t = Test mode.  Do not actually make any changes. Implies -v."
     echo "         -v = Verbose mode. Print extra information."
     echo "         -V = Version.  Print a version string and exit."
@@ -28,11 +29,13 @@ function usage() {
 #
 # Get options.
 #
+jobs=false
 test=false
 verbose=false
-while getopts htvV argname; do
+while getopts hjtvV argname; do
     case ${argname} in
         h) usage; exit 0 ;;
+        j) jobs=true ;;
         t) test=true; verbose=true ;;
         v) verbose=true ;;
         V) version; exit 0 ;;
@@ -88,10 +91,14 @@ for night in ${DESI_SPECTRO_DATA}/*; do
                 echo "WARNING: File number mismatch in ${expid}/${c}!"
                 ${verbose} && echo "DEBUG: echo ${n} >> ${redo}"
                 ${test}    || echo ${n} >> ${redo}
+                ${verbose} && echo "DEBUG: (cd ${expid} && unlock_and_resum ${c})"
+                ${test}    || (cd ${expid} && unlock_and_resum ${c})
             else
                 echo "WARNING: Checksum error detected for ${expid}/${c}!"
                 ${verbose} && echo "DEBUG: echo ${n} >> ${redo}"
                 ${test}    || echo ${n} >> ${redo}
+                ${verbose} && echo "DEBUG: (cd ${expid} && unlock_and_resum ${c})"
+                ${test}    || (cd ${expid} && unlock_and_resum ${c})
             fi
         done
     fi
@@ -99,9 +106,17 @@ done
 #
 # Redo backups of changed nights
 #
+redo_unique=${DESIDA}/redo_nights_unique.txt
 for n in $(cat ${redo} | sort -n | uniq); do
-    job_name=desi_spectro_data_${n}
-    cat > ${HOME}/jobs/${job_name}.sh <<EOT
+    grep -q ${n} ${redo_unique}
+    if [[ $? != 0 ]]; then
+        echo "WARNING: New unique redo night = ${n}!"
+    fi
+done
+if jobs; then
+    for n in $(<${redo_unique}); do
+        job_name=desi_spectro_data_${n}
+        cat > ${HOME}/jobs/${job_name}.sh <<EOT
 #!/bin/bash
 #SBATCH --account=desi
 #SBATCH --qos=xfer
@@ -114,10 +129,5 @@ htar -cvf desi/spectro/data/${job_name}.tar -H crc:verify=all ${n}
 [[ \$? == 0 ]] && mv -v /global/homes/d/desi/jobs/${job_name}.sh /global/homes/d/desi/jobs/done
 EOT
 
-done
-#
-# verify checksums for each expid
-# if any checksum changes, redo backups
-# Double-check permissions.
-# Move night.
-#
+    done
+fi

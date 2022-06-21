@@ -18,11 +18,23 @@ function version() {
     ) >&2
 }
 #
-# Save some writing.
+# Move an existing file.
 #
 function unlock_and_move() {
     local filename=$1
     chmod u+w .
+    mv ${SCRATCH}/${filename} .
+    chmod u-w ${filename}
+    chmod u-w .
+}
+#
+# Remove and create a new file.
+#
+function unlock_and_resum() {
+    local filename=$1
+    chmod u+w .
+    /bin/rm -f ${filename}
+    sha256sum * > ${SCRATCH}/${filename}
     mv ${SCRATCH}/${filename} .
     chmod u-w ${filename}
     chmod u-w .
