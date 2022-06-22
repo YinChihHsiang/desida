@@ -129,5 +129,6 @@ htar -cvf desi/spectro/data/${job_name}.tar -H crc:verify=all ${n}
 [[ \$? == 0 ]] && mv -v /global/homes/d/desi/jobs/${job_name}.sh /global/homes/d/desi/jobs/done
 EOT
 
+        chmod +x ${HOME}/jobs/${job_name}.sh
     done
 fi
