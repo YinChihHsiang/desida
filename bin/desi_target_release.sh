@@ -68,7 +68,14 @@ for d in $(find ${DESI_TARGET} -type d); do
         if [[ -f ${d}/${c} ]]; then
             echo "INFO: Existing checksum file found: ${d}/${c}, verifying."
             ${verbose} && echo "DEBUG: (cd ${d} && validate ${c})"
-            ${test}    || (cd ${expid} && validate ${c})
+            (cd ${d} && validate ${c})
+            if [[ $? == 0 ]]; then
+                ${verbose} && echo "DEBUG: ${d}/${c} is valid."
+            else
+                echo "ERROR: Invalid checksum file detected: ${d}/${c}, rebuilding!"
+                ${verbose} && echo "DEBUG: (cd ${d} && unlock_and_resum ${c})"
+                ${test}    || (cd ${d} && unlock_and_resum ${c})
+            fi
         else
             echo "INFO: No checksum file found for ${d}, creating."
             ${verbose} && echo "DEBUG: (cd ${d} && unlock_and_resum ${c})"
