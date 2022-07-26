@@ -60,6 +60,10 @@ touch ${redo}
 #
 for night in ${DESI_SPECTRO_DATA}/*; do
     n=$(basename ${night})
+    if [[ ${n} < 20200201 ]]; then
+        ${verbose} && echo "DEBUG: Skipping early night ${n}."
+        continue
+    fi
     if [[ ${n} < 20210514 || \
           ${n} == 20210517 || \
           ${n} == 20210518 || \
