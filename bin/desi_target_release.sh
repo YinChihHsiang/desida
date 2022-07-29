@@ -91,7 +91,7 @@ fi
 #
 # Create jobs
 #
-if jobs; then
+if ${jobs}; then
     job_name=${release}_target_secondary
     cat > ${HOME}/jobs/${job_name}.sh <<EOT
 #!/bin/bash
