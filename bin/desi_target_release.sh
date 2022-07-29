@@ -127,7 +127,7 @@ EOT
     chmod +x ${HOME}/jobs/${job_name}.sh
 
     for catalog in dr8 dr9 gaiadr2; do
-        for version in ${catalog}/*; do
+        for version in ${DESI_TARGET}/catalogs/${catalog}/*; do
             v=$(basename ${version})
             job_name=${release}_target_catalogs_${catalog}_${v}
             cat > ${HOME}/jobs/${job_name}.sh <<EOT
