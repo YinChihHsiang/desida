@@ -57,7 +57,7 @@ if [[ ! -d ${DESI_TARGET} ]]; then
     echo "ERROR: could not find DESI_TARGET=${DESI_TARGET}! Does the directory exist?"
     exit 1
 fi
-if checksum; then
+if ${checksum}; then
     for d in $(find ${DESI_TARGET} -type d); do
         #
         # Does the directory contain files besides a README file?
