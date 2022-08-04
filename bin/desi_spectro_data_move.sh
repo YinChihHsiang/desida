@@ -72,9 +72,10 @@ release_data=${DESI_ROOT}/public/${release}/spectro/data
 relative_data='../../public/edr/spectro/data'
 for n in ${DESI_SPECTRO_DATA}/20*; do
     night=$(basename ${n})
-    if is_night_in_release ${release} ${night}
-    ${verbose} && echo "DEBUG: mv ${DESI_SPECTRO_DATA}/${night} ${release_data}"
-    ${test}    || mv ${DESI_SPECTRO_DATA}/${night} ${release_data}
-    ${verbose} && echo "DEBUG: (cd ${DESI_SPECTRO_DATA} && ln -s ${relative_data}/${night})"
-    ${test}    || (cd ${DESI_SPECTRO_DATA} && ln -s ${relative_data}/${night})
+    if is_night_in_release ${release} ${night}; then
+        ${verbose} && echo "DEBUG: mv ${DESI_SPECTRO_DATA}/${night} ${release_data}"
+        ${test}    || mv ${DESI_SPECTRO_DATA}/${night} ${release_data}
+        ${verbose} && echo "DEBUG: (cd ${DESI_SPECTRO_DATA} && ln -s ${relative_data}/${night})"
+        ${test}    || (cd ${DESI_SPECTRO_DATA} && ln -s ${relative_data}/${night})
+    fi
 done
