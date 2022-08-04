@@ -32,8 +32,8 @@ function is_night_in_release() {
     local release=$1
     local night=$2
     if [[ "${release}" == "edr" ]]; then
-        [[ ${night} >= 20200201 && ${night} < 20210514 ]] && return 0
-        [[ ${night} == 20210517 || ${night} == 20210518 || ${night} == 20210521 || ${night} == 20210529 || ${night} == 20210610 ]] && return 0
+        (( ${night} >= 20200201 && ${night} < 20210514 )) && return 0
+        (( ${night} == 20210517 || ${night} == 20210518 || ${night} == 20210521 || ${night} == 20210529 || ${night} == 20210610 )) && return 0
     fi
     return 1
 }
