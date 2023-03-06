@@ -128,6 +128,22 @@ for d in processing_tables run zcatalog; do
         ${verbose} && echo "DEBUG: unlock_and_move redux_${SPECPROD}_${d}.sha256sum"
         ${test}    || unlock_and_move redux_${SPECPROD}_${d}.sha256sum
     fi
+    if [[ "${d}" == "zcatalog" && -d ${d}/logs ]]; then
+        cd ${d}/logs
+        if [[ -f redux_${SPECPROD}_${d}_logs.sha256sum ]]; then
+            if validate redux_${SPECPROD}_${d}_logs.sha256sum deep; then
+                echo "INFO: ${d}/redux_${SPECPROD}_${d}_logs.sha256sum already exists."
+            else
+                echo "WARNING: ${d}/redux_${SPECPROD}_${d}_logs.sha256sum is invalid!"
+            fi
+        else
+            ${verbose} && echo "DEBUG: sha256sum * > ${SCRATCH}/redux_${SPECPROD}_${d}_logs.sha256sum"
+            ${test}    || sha256sum * > ${SCRATCH}/redux_${SPECPROD}_${d}_logs.sha256sum
+            ${verbose} && echo "DEBUG: unlock_and_move redux_${SPECPROD}_${d}_logs.sha256sum"
+            ${test}    || unlock_and_move redux_${SPECPROD}_${d}_logs.sha256sum
+        fi
+        cd ..
+    fi
     cd ..
 done
 #
