@@ -77,10 +77,14 @@ if [[ -f redux_${SPECPROD}_healpix.sha256sum ]]; then
         echo "WARNING: healpix/redux_${SPECPROD}_healpix.sha256sum is invalid!"
     fi
 else
-    ${verbose} && echo "DEBUG: sha256sum tilepix.* > ${SCRATCH}/redux_${SPECPROD}_healpix.sha256sum"
-    ${test}    || sha256sum tilepix.* > ${SCRATCH}/redux_${SPECPROD}_healpix.sha256sum
-    ${verbose} && echo "DEBUG: unlock_and_move redux_${SPECPROD}_healpix.sha256sum"
-    ${test}    || unlock_and_move redux_${SPECPROD}_healpix.sha256sum
+    if [[ -f tilepix.fits ]]; then
+        ${verbose} && echo "DEBUG: sha256sum tilepix.* > ${SCRATCH}/redux_${SPECPROD}_healpix.sha256sum"
+        ${test}    || sha256sum tilepix.* > ${SCRATCH}/redux_${SPECPROD}_healpix.sha256sum
+        ${verbose} && echo "DEBUG: unlock_and_move redux_${SPECPROD}_healpix.sha256sum"
+        ${test}    || unlock_and_move redux_${SPECPROD}_healpix.sha256sum
+    else
+        echo "WARNING: healpix/tilepix.* files not generated yet, skipping!"
+    fi
 fi
 cd ..
 #
