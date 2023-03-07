@@ -215,7 +215,7 @@ for d in healpix tiles; do
             for dd in $(find ${group} -type d); do
                 has_files=$(find ${dd} -maxdepth 1 -type f)
                 if [[ -n "${has_files}" ]]; then
-                    s=redux_${SPECPROD}_${d}_$(tr '/', '_' <<<${dd}).sha256sum
+                    s=redux_${SPECPROD}_${d}_$(tr '/' '_' <<<${dd}).sha256sum
                     cd ${dd}
                     if [[ -f ${s} ]]; then
                         if ${test}; then
