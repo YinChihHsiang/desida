@@ -55,10 +55,14 @@ fi
 home=${DESI_SPECTRO_REDUX}/${SPECPROD}
 cd ${home}
 if [[ -f redux_${SPECPROD}.sha256sum ]]; then
-    if validate redux_${SPECPROD}.sha256sum; then
+    if ${test}; then
         echo "INFO: redux_${SPECPROD}.sha256sum already exists."
     else
-        echo "WARNING: redux_${SPECPROD}.sha256sum is invalid!"
+        if validate redux_${SPECPROD}.sha256sum; then
+            ${verbose} && echo "INFO: redux_${SPECPROD}.sha256sum already exists and is valid."
+        else
+            echo "WARNING: redux_${SPECPROD}.sha256sum is invalid!"
+        fi
     fi
 else
     ${verbose} && echo "DEBUG: sha256sum exposures-${SPECPROD}.* tiles-${SPECPROD}.* > ${SCRATCH}/redux_${SPECPROD}.sha256sum"
@@ -71,10 +75,14 @@ fi
 #
 cd healpix
 if [[ -f redux_${SPECPROD}_healpix.sha256sum ]]; then
-    if validate redux_${SPECPROD}_healpix.sha256sum; then
+    if ${test}; then
         echo "INFO: healpix/redux_${SPECPROD}_healpix.sha256sum already exists."
     else
-        echo "WARNING: healpix/redux_${SPECPROD}_healpix.sha256sum is invalid!"
+        if validate redux_${SPECPROD}_healpix.sha256sum; then
+            ${verbose} && echo "INFO: healpix/redux_${SPECPROD}_healpix.sha256sum already exists and is valid."
+        else
+            echo "WARNING: healpix/redux_${SPECPROD}_healpix.sha256sum is invalid!"
+        fi
     fi
 else
     if [[ -f tilepix.fits ]]; then
@@ -95,10 +103,14 @@ for d in calibnight exposure_tables; do
     for night in *; do
         cd ${night}
         if [[ -f redux_${SPECPROD}_${d}_${night}.sha256sum ]]; then
-            if validate redux_${SPECPROD}_${d}_${night}.sha256sum; then
+            if ${test}; then
                 echo "INFO: ${d}/${night}/redux_${SPECPROD}_${d}_${night}.sha256sum already exists."
             else
-                echo "WARNING: ${d}/${night}/redux_${SPECPROD}_${d}_${night}.sha256sum is invalid!"
+                if validate redux_${SPECPROD}_${d}_${night}.sha256sum; then
+                    ${verbose} && echo "INFO: ${d}/${night}/redux_${SPECPROD}_${d}_${night}.sha256sum already exists and is valid."
+                else
+                    echo "WARNING: ${d}/${night}/redux_${SPECPROD}_${d}_${night}.sha256sum is invalid!"
+                fi
             fi
         else
             ${verbose} && echo "DEBUG: sha256sum * > ${SCRATCH}/redux_${SPECPROD}_${d}_${night}.sha256sum"
@@ -116,10 +128,14 @@ done
 for d in processing_tables run zcatalog; do
     cd ${d}
     if [[ -f redux_${SPECPROD}_${d}.sha256sum ]]; then
-        if validate redux_${SPECPROD}_${d}.sha256sum deep; then
+        if ${test}; then
             echo "INFO: ${d}/redux_${SPECPROD}_${d}.sha256sum already exists."
         else
-            echo "WARNING: ${d}/redux_${SPECPROD}_${d}.sha256sum is invalid!"
+            if validate redux_${SPECPROD}_${d}.sha256sum deep; then
+                ${verbose} && echo "INFO: ${d}/redux_${SPECPROD}_${d}.sha256sum already exists and is valid."
+            else
+                echo "WARNING: ${d}/redux_${SPECPROD}_${d}.sha256sum is invalid!"
+            fi
         fi
     else
         if [[ "${d}" == "run" ]]; then
@@ -135,10 +151,14 @@ for d in processing_tables run zcatalog; do
     if [[ "${d}" == "zcatalog" && -d ${d}/logs ]]; then
         cd ${d}/logs
         if [[ -f redux_${SPECPROD}_${d}_logs.sha256sum ]]; then
-            if validate redux_${SPECPROD}_${d}_logs.sha256sum deep; then
+            if ${test}; then
                 echo "INFO: ${d}/redux_${SPECPROD}_${d}_logs.sha256sum already exists."
             else
-                echo "WARNING: ${d}/redux_${SPECPROD}_${d}_logs.sha256sum is invalid!"
+                if validate redux_${SPECPROD}_${d}_logs.sha256sum deep; then
+                    ${verbose} && echo "INFO: ${d}/redux_${SPECPROD}_${d}_logs.sha256sum already exists and is valid."
+                else
+                    echo "WARNING: ${d}/redux_${SPECPROD}_${d}_logs.sha256sum is invalid!"
+                fi
             fi
         else
             ${verbose} && echo "DEBUG: sha256sum * > ${SCRATCH}/redux_${SPECPROD}_${d}_logs.sha256sum"
@@ -163,10 +183,14 @@ for d in exposures preproc; do
             else
                 cd ${expid}
                 if [[ -f redux_${SPECPROD}_${d}_${night}_${expid}.sha256sum ]]; then
-                    if validate redux_${SPECPROD}_${d}_${night}_${expid}.sha256sum; then
+                    if ${test}; then
                         echo "INFO: ${d}/${night}/${expid}/redux_${SPECPROD}_${d}_${night}_${expid}.sha256sum already exists."
                     else
-                        echo "WARNING: ${d}/${night}/${expid}/redux_${SPECPROD}_${d}_${night}_${expid}.sha256sum is invalid!"
+                        if validate redux_${SPECPROD}_${d}_${night}_${expid}.sha256sum; then
+                            ${verbose} && echo "INFO: ${d}/${night}/${expid}/redux_${SPECPROD}_${d}_${night}_${expid}.sha256sum already exists and is valid."
+                        else
+                            echo "WARNING: ${d}/${night}/${expid}/redux_${SPECPROD}_${d}_${night}_${expid}.sha256sum is invalid!"
+                        fi
                     fi
                 else
                     ${verbose} && echo "DEBUG: sha256sum * > ${SCRATCH}/redux_${SPECPROD}_${d}_${night}_${expid}.sha256sum"
@@ -194,10 +218,14 @@ for d in healpix tiles; do
                     s=redux_${SPECPROD}_${d}_$(tr '/', '_' <<<${dd}).sha256sum
                     cd ${dd}
                     if [[ -f ${s} ]]; then
-                        if validate ${s}; then
+                        if ${test}; then
                             echo "INFO: ${d}/${dd}/${s} already exists."
                         else
-                            echo "WARNING: ${d}/${dd}/${s} is invalid!"
+                            if validate ${s}; then
+                                ${verbose} && echo "INFO: ${d}/${dd}/${s} already exists."
+                            else
+                                echo "WARNING: ${d}/${dd}/${s} is invalid!"
+                            fi
                         fi
                     else
                         # ${verbose} && echo "DEBUG: touch ${SCRATCH}/${s}"
