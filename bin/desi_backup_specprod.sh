@@ -50,6 +50,8 @@ function create_checksum_job() {
 #SBATCH --job-name=${job_name}
 #SBATCH --output=${jobs}/${job_name}-%j.log
 #SBATCH --licenses=cfs
+source /global/common/software/desi/desi_environment.sh main
+module load desida desiBackup
 source ${DESIDA}/bin/desida_library.sh
 cd ${checksum_dir}
 if [[ -f ${checksum_file} ]]; then
