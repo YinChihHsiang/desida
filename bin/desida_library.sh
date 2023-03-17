@@ -23,8 +23,8 @@ function version() {
 function unlock_and_move() {
     local filename=$1
     chmod u+w .
-    mv ${SCRATCH}/${filename} .
-    chmod u-w ${filename}
+    mv ${filename} . || return $?
+    chmod u-w $(basename ${filename})
     chmod u-w .
 }
 #
@@ -35,7 +35,7 @@ function unlock_and_resum() {
     chmod u+w .
     /bin/rm -f ${filename}
     sha256sum * > ${SCRATCH}/${filename}
-    mv ${SCRATCH}/${filename} .
+    mv ${SCRATCH}/${filename} . || return $?
     chmod u-w ${filename}
     chmod u-w .
 }

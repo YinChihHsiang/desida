@@ -53,12 +53,13 @@ function create_checksum_job() {
 source /global/common/software/desi/desi_environment.sh main
 module load desida desiBackup
 source ${DESIDA}/bin/desida_library.sh
+set -o xtrace
 cd ${checksum_dir}
 if [[ -f ${checksum_file} ]]; then
-    validate ${checksum_file} && mv -v ${jobs}/${job_name}.sh ${jobs}/done
+    validate ${checksum_file} && mv ${jobs}/${job_name}.sh ${jobs}/done
 else
     ${command} > ${scratch}/${checksum_file}
-    [[ \$? == 0 ]] && unlock_and_move ${checksum_file} && mv -v ${jobs}/${job_name}.sh ${jobs}/done
+    [[ \$? == 0 ]] && unlock_and_move ${scratch}/${checksum_file} && mv ${jobs}/${job_name}.sh ${jobs}/done
 fi
 EOT
     chmod +x ${jobs}/${job_name}.sh
