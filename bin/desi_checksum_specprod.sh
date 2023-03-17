@@ -20,10 +20,12 @@ function usage() {
     echo "Assuming files are on disk are in a clean, archival state, this script"
     echo "will create checksum files for the entire data set."
     echo ""
-    echo "    -h      = Print this message and exit."
-    echo "    -j JOBS = Use JOBS directory to write batch files (default ${HOME}/jobs)."
-    echo "    -s DIR  = Use DIR for temporary files (default ${SCRATCH})."
-    echo "    -V      = Version.  Print a version string and exit."
+    echo "    -h       = Print this message and exit."
+    echo "    -j JOBS  = Use JOBS directory to write batch files (default ${HOME}/jobs)."
+    echo "    -s DIR   = Use DIR for temporary files (default ${SCRATCH})."
+    echo "    -V       = Version.  Print a version string and exit."
+    echo ""
+    echo "    SPECPROD = Spectroscopic Production run name, e.g. 'iron'."
     ) >&2
 }
 #
@@ -83,6 +85,7 @@ if [[ $# < 1 ]]; then
     exit 1
 fi
 export SPECPROD=$1
+[[ -d ${jobs}/done ]] || mkdir -p ${jobs}/done
 if [[ ! -d ${DESI_SPECTRO_REDUX}/${SPECPROD} ]]; then
     echo "ERROR: ${DESI_SPECTRO_REDUX}/${SPECPROD} does not exist!" >&2
     exit 1
