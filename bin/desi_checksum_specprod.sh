@@ -55,6 +55,7 @@ source /global/common/software/desi/desi_environment.sh main
 module load desida desiBackup
 source ${DESIDA}/bin/desida_library.sh
 set -o xtrace
+shopt -s extglob
 cd ${checksum_dir}
 if [[ -f ${checksum_file} ]]; then
     validate ${checksum_file} && mv ${jobs}/${job_name}.sh ${jobs}/done
@@ -115,7 +116,7 @@ done
 #
 create_checksum_job ${DESI_SPECTRO_REDUX}/${SPECPROD}/processing_tables/redux_${SPECPROD}_processing_tables.sha256sum \*
 create_checksum_job ${DESI_SPECTRO_REDUX}/${SPECPROD}/run/redux_${SPECPROD}_run.sha256sum .
-create_checksum_job ${DESI_SPECTRO_REDUX}/${SPECPROD}/zcatalog/redux_${SPECPROD}_zcatalog.sha256sum \*
+create_checksum_job ${DESI_SPECTRO_REDUX}/${SPECPROD}/zcatalog/redux_${SPECPROD}_zcatalog.sha256sum '!(logs)'
 create_checksum_job ${DESI_SPECTRO_REDUX}/${SPECPROD}/zcatalog/logs/redux_${SPECPROD}_zcatalog_logs.sha256sum \*
 #
 # exposures, preproc
@@ -143,10 +144,15 @@ for d in healpix tiles; do
     for group in *; do
         if [[ -d ${group} ]]; then
             for dd in $(find ${group} -type d); do
+                if [[ $(basename ${dd}) == "logs" ]]; then
+                    c='*'
+                else
+                    c='!(logs)'
+                fi
                 has_files=$(find ${dd} -maxdepth 1 -type f)
                 if [[ -n "${has_files}" ]]; then
                     s=redux_${SPECPROD}_${d}_$(tr '/' '_' <<<${dd}).sha256sum
-                    create_checksum_job ${DESI_SPECTRO_REDUX}/${SPECPROD}/${d}/${dd}/${s} \*
+                    create_checksum_job ${DESI_SPECTRO_REDUX}/${SPECPROD}/${d}/${dd}/${s} ${c}
                 fi
             done
         fi
