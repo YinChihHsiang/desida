@@ -152,7 +152,7 @@ for d in healpix tiles; do
                 has_files=$(find ${dd} -maxdepth 1 -type f)
                 if [[ -n "${has_files}" ]]; then
                     s=redux_${SPECPROD}_${d}_$(tr '/' '_' <<<${dd}).sha256sum
-                    create_checksum_job ${DESI_SPECTRO_REDUX}/${SPECPROD}/${d}/${dd}/${s} ${c}
+                    create_checksum_job ${DESI_SPECTRO_REDUX}/${SPECPROD}/${d}/${dd}/${s} "${c}"
                 fi
             done
         fi
