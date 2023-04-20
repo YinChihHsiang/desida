@@ -11,10 +11,11 @@ source ${DESIDA}/bin/desida_library.sh
 function usage() {
     local execName=$(basename $0)
     (
-    echo "${execName} [-h] [-j JOBS] [-v] [-V] SPECPROD DIRECTORY"
+    echo "${execName} [-d DIR] [-h] [-j JOBS] [-v] [-V] SPECPROD DIRECTORY"
     echo ""
     echo "Create xfer jobs for SPECPROD."
     echo ""
+    echo "    -d DIR    = Use this directory on HPSS (default 'desi/spectro/redux')."
     echo "    -h        = Print this message and exit."
     echo "    -j JOBS   = Use JOBS directory to write batch files (default ${HOME}/jobs)."
     echo "    -v        = Verbose mode. Print extra information."
@@ -24,10 +25,12 @@ function usage() {
     echo "    DIRECTORY = Create backup jobs for this directory with in SPECPROD."
     ) >&2
 }
+hpss_dir='desi/spectro/redux'
 jobs=${HOME}/jobs
 verbose=false
-while getopts hj:vV argname; do
+while getopts d:hj:vV argname; do
     case ${argname} in
+        d) hpss_dir=${OPTARG} ;;
         h) usage; exit 0 ;;
         j) jobs=${OPTARG} ;;
         v) verbose=true ;;
@@ -66,8 +69,8 @@ for d in ${DESI_SPECTRO_REDUX}/${SPECPROD}/${directory}/*; do
 #SBATCH --output=${jobs}/${job_name}-%j.log
 #SBATCH --licenses=cfs
 cd ${DESI_SPECTRO_REDUX}/${SPECPROD}/${directory}
-hsi mkdir -p desi/spectro/redux/${SPECPROD}/${directory}
-htar -cvf desi/spectro/redux/${SPECPROD}/${directory}/${job_name}.tar -H crc:verify=all ${n}
+hsi mkdir -p ${hpss_dir}/${SPECPROD}/${directory}
+htar -cvf ${hpss_dir}/${SPECPROD}/${directory}/${job_name}.tar -H crc:verify=all ${n}
 [[ \$? == 0 ]] && mv -v ${jobs}/${job_name}.sh ${jobs}/done
 EOT
     ${verbose} && echo "DEBUG: chmod +x ${jobs}/${job_name}.sh" >&2
