@@ -5,7 +5,7 @@ desida
 Introduction
 ------------
 
-Scripts and configuration for DESI Data Assemblies and Releases.
+Code, scripts and configuration to assist with DESI Data Assemblies and Releases.
 
 Change Log
 ----------
