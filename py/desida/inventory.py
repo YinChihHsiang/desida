@@ -54,7 +54,8 @@ def find_all_files(root, cext='.sha256sum'):
     directories = dict()
     checksums = dict()
     for dirpath, dirnames, filenames in os.walk(root, followlinks=True):
-        directories[dirpath] = filenames.copy()
+        if filenames:
+            directories[dirpath] = filenames.copy()
         for d in dirnames:
             dd = os.path.join(dirpath, d)
             if d.startswith('.'):
