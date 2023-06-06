@@ -65,9 +65,11 @@ def find_all_files(root, cext='.sha256sum'):
             if f.startswith('.'):
                 log.warning('Hidden file detected: %s!', ff)
             if os.path.splitext(f)[1] == cext:
-                log.info("Checksum file detected: %s.", ff)
+                log.debug("Checksum file detected: %s.", ff)
                 log.debug("checksums['%s'] = checksum_contents('%s')", ff, ff)
                 checksums[ff] = checksum_contents(ff)
+    return directories, checksums
+
 
 def main():
     """Entry-point for command-line scripts.
