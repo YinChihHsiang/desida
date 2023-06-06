@@ -30,7 +30,7 @@ def checksum_contents(checksum_file):
         lines = c.readlines()
     for l in lines:
         foo = l.strip().split()
-        r[os.path.normpath(os.path.join(d, foo[1]))] = foo[0]
+        r[foo[1]] = foo[0]
     return r
 
 
@@ -71,6 +71,31 @@ def find_all_files(root, cext='.sha256sum'):
     return directories, checksums
 
 
+def checksum_accounting(directories, checksums):
+    """Compare the files in `directories` to the files in `checksums`.
+
+    Parameters
+    ----------
+    directories : :class:`dict`
+        A mapping of directories to files in that directory.
+    checksums : :class:`dict`
+        A mapping of checksum files to contents of that checksum file.
+
+    Returns
+    -------
+    :class:`tuple`
+        A :class:`set` of files that do not appear in any checksum file and a :class:`set`
+        of files that appear in a checksum file but not on disk.
+    """
+    directory_files = set()
+    checksum_files = set()
+    for d in directories:
+        directory_files |= {os.path.join(d, f) for f in directories[d]}
+    for c in checksums:
+        checksum_files |= {os.path.normpath(os.path.join(os.path.dirname(c), f)) for f in checksums[c]}
+    return directory_files - checksum_files, checksum_files - directory_files
+
+
 def main():
     """Entry-point for command-line scripts.
 
@@ -80,6 +105,9 @@ def main():
         An integer suitable for passing to :func:`sys.exit`.
     """
     directories, checksums = find_all_files(sys.argv[1])
-    print(directories)
-    print(checksums)
+    # print(directories)
+    # print(checksums)
+    on_disk, in_checksum = checksum_accounting(directories, checksums)
+    print(on_disk)
+    print(in_checksum)
     return 0
