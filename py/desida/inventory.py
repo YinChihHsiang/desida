@@ -90,7 +90,8 @@ def checksum_accounting(directories, checksums):
     directory_files = set()
     checksum_files = set()
     for d in directories:
-        directory_files |= {os.path.join(d, f) for f in directories[d]}
+        directory_files |= {os.path.join(d, f) for f in directories[d]
+                            if os.path.join(d, f) not in checksum_files}
     for c in checksums:
         checksum_files |= {os.path.normpath(os.path.join(os.path.dirname(c), f)) for f in checksums[c]}
     return directory_files - checksum_files, checksum_files - directory_files
