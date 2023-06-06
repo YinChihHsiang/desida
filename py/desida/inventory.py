@@ -106,9 +106,12 @@ def main():
         An integer suitable for passing to :func:`sys.exit`.
     """
     directories, checksums = find_all_files(sys.argv[1])
-    # print(directories)
-    # print(checksums)
+    status = 0
     on_disk, in_checksum = checksum_accounting(directories, checksums)
-    print(on_disk)
-    print(in_checksum)
-    return 0
+    if on_disk:
+        status += len(on_disk)
+        print(on_disk)
+    if in_checksum:
+        status += len(in_checksum)
+        print(in_checksum)
+    return status
