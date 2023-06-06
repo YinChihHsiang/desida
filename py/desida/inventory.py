@@ -53,7 +53,7 @@ def find_all_files(root, cext='.sha256sum'):
     """
     directories = dict()
     checksums = dict()
-    for dirpath, dirnames, filenames in os.walk(root, followlinks=True):
+    for dirpath, dirnames, filenames in os.walk(root):
         if filenames:
             directories[dirpath] = filenames.copy()
         for d in dirnames:
@@ -110,8 +110,8 @@ def main():
     on_disk, in_checksum = checksum_accounting(directories, checksums)
     if on_disk:
         status += len(on_disk)
-        print(on_disk)
+        log.error("Found these files on disk but not in a checksum file: %s", str(on_disk))
     if in_checksum:
         status += len(in_checksum)
-        print(in_checksum)
+        log.error("Found these files in a checksum file but not on disk: %s", str(in_checksum))
     return status
