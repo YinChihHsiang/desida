@@ -102,14 +102,7 @@ done
 #
 # Redo backups of changed nights
 #
-redo_unique=${SCRATCH}/redo_nights_unique.txt
 for night in $(cat ${redo} | sort -n | uniq); do
-    grep -q ${night} ${redo_unique}
-    if [[ $? != 0 ]]; then
-        echo "WARNING: New unique redo night = ${n}!"
-    fi
-done
-for night in $(<${redo_unique}); do
     job_name=desi_spectro_data_${night}
     cat > ${HOME}/jobs/${job_name}.sh <<EOT
 #!/bin/bash
