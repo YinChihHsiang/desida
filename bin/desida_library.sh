@@ -58,3 +58,19 @@ function validate() {
     (( n_files == n_lines + 1 )) || return 17
     sha256sum --status --check ${checksum}
 }
+#
+# Raw data nights in each release.
+#
+function is_night_in_release() {
+    local release=$1
+    local night=$2
+    if [[ "${release}" == "edr" ]]; then
+        (( ${night} >= 20200201 && ${night} < 20210514 )) && return 0
+        (( ${night} == 20210517 || ${night} == 20210518 || ${night} == 20210521 || ${night} == 20210529 || ${night} == 20210610 )) && return 0
+    fi
+    if [[ "${release}" == "dr1" ]]; then
+        (( ${night} == 20210517 || ${night} == 20210518 || ${night} == 20210521 || ${night} == 20210529 || ${night} == 20210610 )) && return 1
+        (( ${night} >= 20210514 && ${night} < 20220614 )) && return 0
+    fi
+    return 1
+}

@@ -16,7 +16,7 @@ function usage() {
     echo ""
     echo "Move raw data files (DESI_SPECTRO_DATA) into place for release."
     echo ""
-    echo "Verify checksums, redo tape backups if necessary."
+    echo "Run this script after checksums have been re-validated."
     echo ""
     echo "         -h = Print this message and exit."
     echo "         -t = Test mode.  Do not actually make any changes. Implies -v."
@@ -24,18 +24,6 @@ function usage() {
     echo "         -V = Version.  Print a version string and exit."
     echo "    RELEASE = Name of release, e.g. 'edr'."
     ) >&2
-}
-#
-# Night to release.
-#
-function is_night_in_release() {
-    local release=$1
-    local night=$2
-    if [[ "${release}" == "edr" ]]; then
-        (( ${night} >= 20200201 && ${night} < 20210514 )) && return 0
-        (( ${night} == 20210517 || ${night} == 20210518 || ${night} == 20210521 || ${night} == 20210529 || ${night} == 20210610 )) && return 0
-    fi
-    return 1
 }
 #
 # Get options.
@@ -57,7 +45,7 @@ if [[ $# < 1 ]]; then
     exit 1
 fi
 release=$1
-if [[ "${release}" != "edr" ]]; then
+if [[ "${release}" != "edr" && "${release}" != "dr1" ]]; then
     echo "ERROR: Undefined release=${release}!"
     exit 1
 fi
@@ -69,7 +57,7 @@ fi
 # Define destination.
 #
 release_data=${DESI_ROOT}/public/${release}/spectro/data
-relative_data='../../public/edr/spectro/data'
+relative_data="../../public/${release}/spectro/data"
 for n in ${DESI_SPECTRO_DATA}/20*; do
     night=$(basename ${n})
     if [[ -L ${n} ]]; then
