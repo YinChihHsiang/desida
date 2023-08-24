@@ -54,6 +54,17 @@ if [[ -z "${DESI_SPECTRO_DATA}" ]]; then
     exit 1
 fi
 #
+# Set up moves on HPSS.
+#
+hpss_moves=${SCRATCH}/desi_spectro_data_move_hpss.txt
+hpss_desi=/nersc/projects/desi
+if [[ -f ${hpss_moves} ]]; then
+    ${verbose} && echo "DEBUG: /bin/rm -f ${hpss_moves}"
+    ${test}    || /bin/rm -f ${hpss_moves}
+fi
+${verbose} && echo "DEBUG: touch ${hpss_moves}"
+${test}    || touch ${hpss_moves}
+#
 # Define destination.
 #
 release_data=${DESI_ROOT}/public/${release}/spectro/data
@@ -72,6 +83,10 @@ for n in ${DESI_SPECTRO_DATA}/20*; do
             ${test}    || chmod -v u-w ${release_data}/${night}
             ${verbose} && echo "DEBUG: (cd ${DESI_SPECTRO_DATA} && ln -s -v ${relative_data}/${night})"
             ${test}    || (cd ${DESI_SPECTRO_DATA} && ln -s -v ${relative_data}/${night})
+            ${verbose} && echo "DEBUG: echo mv ${hpss_desi}/spectro/data/desi_spectro_data_${night}.tar ${hpss_desi}/spectro/data/desi_spectro_data_${night}.tar.idx ${hpss_desi}/public/${release}/spectro/data >> ${hpss_moves}"
+            ${test}    || echo "mv ${hpss_desi}/spectro/data/desi_spectro_data_${night}.tar ${hpss_desi}/spectro/data/desi_spectro_data_${night}.tar.idx ${hpss_desi}/public/${release}/spectro/data" >> ${hpss_moves}
         fi
     fi
 done
+${verbose} && echo "DEBUG: hsi in ${hpss_moves}"
+${test}    || hsi in ${hpss_moves}
