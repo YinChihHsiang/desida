@@ -72,7 +72,7 @@ relative_data="../../public/${release}/spectro/data"
 for n in ${DESI_SPECTRO_DATA}/20*; do
     night=$(basename ${n})
     if [[ -L ${n} ]]; then
-        echo "INFO: ${n} is already a symlink."
+        ${verbose} && echo "DEBUG: ${n} is already a symlink."
     else
         if is_night_in_release ${release} ${night}; then
             ${verbose} && echo "DEBUG: chmod -v u+w ${DESI_SPECTRO_DATA}/${night}"
