@@ -63,11 +63,12 @@ for d in ${DESI_SPECTRO_REDUX}/${SPECPROD}/${directory}/*; do
 #!/bin/bash
 #SBATCH --account=desi
 #SBATCH --qos=xfer
+#SBATCH --constraint=cron
 #SBATCH --time=12:00:00
 #SBATCH --mem=10GB
 #SBATCH --job-name=${job_name}
 #SBATCH --output=${jobs}/%x-%j.log
-#SBATCH --licenses=cfs
+#SBATCH --licenses=cfs,scratch
 cd ${DESI_SPECTRO_REDUX}/${SPECPROD}/${directory}
 hsi mkdir -p ${hpss_dir}/${SPECPROD}/${directory}
 htar -cvf ${hpss_dir}/${SPECPROD}/${directory}/${job_name}.tar -H crc:verify=all ${n}
