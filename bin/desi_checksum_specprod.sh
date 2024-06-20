@@ -107,7 +107,7 @@ create_checksum_job ${DESI_SPECTRO_REDUX}/${SPECPROD}/healpix/redux_${SPECPROD}_
 #
 # calibnight, exposure_tables
 #
-for d in calibnight exposure_tables; do
+for d in calibnight exposure_tables nightqa; do
     cd ${d}
     for night in *; do
         create_checksum_job ${DESI_SPECTRO_REDUX}/${SPECPROD}/${d}/${night}/redux_${SPECPROD}_${d}_${night}.sha256sum \*
