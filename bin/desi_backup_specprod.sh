@@ -66,7 +66,7 @@ for d in ${DESI_SPECTRO_REDUX}/${SPECPROD}/${directory}/*; do
 #SBATCH --time=12:00:00
 #SBATCH --mem=10GB
 #SBATCH --job-name=${job_name}
-#SBATCH --output=${jobs}/${job_name}-%j.log
+#SBATCH --output=${jobs}/%x-%j.log
 #SBATCH --licenses=cfs
 cd ${DESI_SPECTRO_REDUX}/${SPECPROD}/${directory}
 hsi mkdir -p ${hpss_dir}/${SPECPROD}/${directory}

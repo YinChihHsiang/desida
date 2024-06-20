@@ -46,11 +46,10 @@ function create_checksum_job() {
 #!/bin/bash
 #SBATCH --account=desi
 #SBATCH --qos=xfer
-#SBATCH --time=12:00:00
-#SBATCH --mem=10GB
+#SBATCH --time=4:00:00
 #SBATCH --job-name=${job_name}
-#SBATCH --output=${jobs}/${job_name}-%j.log
-#SBATCH --licenses=cfs
+#SBATCH --output=${jobs}/%x-%j.log
+#SBATCH --licenses=cfs,scratch
 source /global/common/software/desi/desi_environment.sh main
 module load desida desiBackup
 source ${DESIDA}/bin/desida_library.sh
@@ -96,7 +95,7 @@ fi
 #
 home=${DESI_SPECTRO_REDUX}/${SPECPROD}
 cd ${home}
-create_checksum_job ${DESI_SPECTRO_REDUX}/${SPECPROD}/redux_${SPECPROD}.sha256sum exposures-${SPECPROD}.\* tiles-${SPECPROD}.\*
+create_checksum_job ${DESI_SPECTRO_REDUX}/${SPECPROD}/redux_${SPECPROD}.sha256sum exposures-${SPECPROD}.\* tiles-${SPECPROD}.\* inventory-${SPECPROD}.\*
 #
 # tilepix.* files in healpix directory
 #
