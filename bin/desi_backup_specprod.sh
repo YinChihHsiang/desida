@@ -17,7 +17,7 @@ function usage() {
     echo ""
     echo "    -d DIR    = Use this directory on HPSS (default 'desi/spectro/redux')."
     echo "    -h        = Print this message and exit."
-    echo "    -j JOBS   = Use JOBS directory to write batch files (default ${HOME}/jobs)."
+    echo "    -j JOBS   = Use JOBS directory to write batch files (default ${DESI_ROOT}/users/${USER}/jobs)."
     echo "    -v        = Verbose mode. Print extra information."
     echo "    -V        = Version.  Print a version string and exit."
     echo ""
@@ -26,7 +26,7 @@ function usage() {
     ) >&2
 }
 hpss_dir='desi/spectro/redux'
-jobs=${HOME}/jobs
+jobs=${DESI_ROOT}/users/${USER}/jobs
 verbose=false
 while getopts d:hj:vV argname; do
     case ${argname} in
