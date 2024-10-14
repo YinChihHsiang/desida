@@ -55,8 +55,8 @@ def get_zpix_qids(specprod=None):
     zpixlogs = sorted(glob.glob(f'{proddir}/run/scripts/healpix/*/*/*/zpix-*.log'))
     zpix_qids = list()
     for filename in zpixlogs:
-        qid = os.path.splitext(os.path.basename(filename))[0].split('-')[-1]
         try:
+            qid = os.path.splitext(os.path.basename(filename))[0].split('-')[-1]
             qid = int(qid)
         except:
             log.error(f'Unable to parse qid from {filename}; skipping')
