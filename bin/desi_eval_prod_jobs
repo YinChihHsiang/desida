@@ -1,0 +1,11 @@
+#!/usr/bin/env python
+
+"""
+Get queue info for production jobs and summarize
+"""
+
+if __name__ == '__main__':
+    import sys
+    from desida.prodjobs import main
+    sys.exit(main())
+
