@@ -58,8 +58,8 @@ def get_zpix_qids(specprod=None):
         try:
             qid = os.path.splitext(os.path.basename(filename))[0].split('-')[-1]
             qid = int(qid)
-        except:
-            log.error(f'Unable to parse qid from {filename}; skipping')
+        except ValueError:
+            log.error(f'Unable to parse integer qid from {filename}; skipping')
             continue
 
         zpix_qids.append(qid)
