@@ -11,6 +11,8 @@ import os, sys, glob, argparse
 import numpy as np
 from astropy.table import Table, vstack
 
+from desiutil.log import get_logger
+
 import desispec.io
 from desispec.workflow.tableio import load_table
 from desispec.workflow.queue import queue_info_from_qids
@@ -48,11 +50,18 @@ def get_zpix_qids(specprod=None):
 
     Returns: list of jobids
     """
+    log = get_logger()
     proddir = desispec.io.specprod_root(specprod)
     zpixlogs = sorted(glob.glob(f'{proddir}/run/scripts/healpix/*/*/*/zpix-*.log'))
     zpix_qids = list()
     for filename in zpixlogs:
         qid = os.path.splitext(os.path.basename(filename))[0].split('-')[-1]
+        try:
+            qid = int(qid)
+        except:
+            log.error(f'Unable to parse qid from {filename}; skipping')
+            continue
+
         zpix_qids.append(qid)
 
     return zpix_qids
