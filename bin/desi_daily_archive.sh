@@ -33,8 +33,6 @@ function create_archivedate_job() {
     local archivedate=$2
     local logs=$3
     local job_name="redux_daily_tiles_archive_${tileid}_${archivedate}"
-    # local checksum_dir=$(dirname ${checksum_name})
-    # local checksum_file=$(basename ${checksum_name})
     cat > ${jobs}/${job_name}.sh <<EOT
 #!/bin/bash
 #SBATCH --account=desi
@@ -108,6 +106,6 @@ for tile_dir in ${archive_dir}/*; do
     done
 done
 #
-# Submit a workflow job that will submit the batch jobs
+# Submit a workflow job that will submit the batch jobs.
 #
 ${batch} && sbatch ${jobs}/submit_daily_tiles_archive.sh
