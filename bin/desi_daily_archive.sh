@@ -30,17 +30,13 @@ function usage() {
 #
 # Create jobs.
 #
-function create_checksum_job() {
-    local archivedate_dir_input=$1
-    shift
-    local checksum_dir=$(dirname ${checksum_name})
-    local checksum_file=$(basename ${checksum_name})
-    local job_name=${checksum_file%.sha256sum}
-    if [[ "$@" == "." ]]; then
-        local command="find . -type f -exec sha256sum \{\} \;"
-    else
-        local command="sha256sum $@"
-    fi
+function create_archivedate_job() {
+    local tileid=$1
+    local archivedate=$2
+    local logs=$3
+    local job_name="redux_daily_tiles_archive_${tileid}_${archivedate}"
+    # local checksum_dir=$(dirname ${checksum_name})
+    # local checksum_file=$(basename ${checksum_name})
     cat > ${jobs}/${job_name}.sh <<EOT
 #!/bin/bash
 #SBATCH --account=desi
@@ -52,19 +48,20 @@ function create_checksum_job() {
 #SBATCH --licenses=cfs,scratch
 source /global/common/software/desi/desi_environment.sh main
 module load desida desiBackup
-source ${DESIDA}/bin/desida_library.sh
+source \${DESIDA}/bin/desida_library.sh
 set -o xtrace
 shopt -s extglob
-archivedate_dir=${archivedate_dir_input}
-archivedate=$(basename \${archivedate_dir})
-tileid_dir=$(dirname \${archivedate_dir})
-tileid=$(basename \${tileid_dir})
-cd ${archivedate_dir}/logs
-sha256sum * > ${scratch}/${checksum_file}
-unlock_and_move ${scratch}/${checksum_file}
-cd ${archivedate_dir}
-sha256sum * > ${scratch}/${checksum_file}
-unlock_and_move ${scratch}/${checksum_file}
+if [[ "${logs}" == "True" ]]; then
+    cd \${DESI_SPECTRO_REDUX}/daily/tiles/archive/${tileid}/${archivedate}/logs
+    sha256sum * > ${scratch}/${job_name}_logs.sha256sum
+    unlock_and_move ${scratch}/${job_name}_logs.sha256sum
+fi
+cd \${DESI_SPECTRO_REDUX}/daily/tiles/archive/${tileid}/${archivedate}
+sha256sum !(logs) > ${scratch}/${job_name}.sha256sum
+unlock_and_move ${scratch}/${job_name}.sha256sum
+cd \${DESI_SPECTRO_REDUX}/daily/tiles/archive
+htar -cvf desi/spectro/redux/daily/tiles/archive/${job_name}.tar -H crc:verify=all ${tileid}/${archivedate}
+[[ \$? == 0 ]] && mv -v ${jobs}/${job_name}.sh ${jobs}/done
 EOT
     chmod +x ${jobs}/${job_name}.sh
 }
@@ -101,11 +98,12 @@ for tile_dir in ${archive_dir}/*; do
             ${verbose} && echo "DEBUG: ${archivedate_dir}/${checksum_file} detected, skipping ${tileid}/${archivedate}."
         else
             echo "INFO: ${tileid}/${archivedate} will be backed up."
-            ${verbose} && echo "DEBUG: ${checksum_file}"
+            logs='False'
             if [[ -d ${archivedate_dir}/logs ]]; then
-                checksum_log_file=redux_daily_tiles_archive_${tileid}_${archivedate}_logs.sha256sum
-                ${verbose} && echo "DEBUG: ${checksum_log_file}"
+                ${verbose} && echo "DEBUG: ${tileid}/${archivedate}/logs will be checksummed."
+                logs='True'
             fi
+            create_archivedate_job ${tileid} ${archivedate} ${logs}
         fi
     done
 done
