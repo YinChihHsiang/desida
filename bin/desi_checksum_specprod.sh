@@ -21,7 +21,7 @@ function usage() {
     echo "will create checksum files for the entire data set."
     echo ""
     echo "    -h         = Print this message and exit."
-    echo "    -j JOBS    = Use JOBS directory to write batch files (default ${HOME}/jobs)."
+    echo "    -j JOBS    = Use JOBS directory to write batch files (default ${DESI_ROOT}/users/${USER}/jobs)."
     echo "    -s DIR     = Use DIR for temporary files (default ${SCRATCH})."
     echo "    -V         = Version. Print a version string and exit."
     echo "    -z VERSION = Version of zcatalog (default 'v1')."
@@ -70,7 +70,7 @@ EOT
 #
 # Get options.
 #
-jobs=${HOME}/jobs
+jobs=${DESI_ROOT}/users/${USER}/jobs
 scratch=${SCRATCH}
 zcat_version=v1
 while getopts hj:s:V argname; do
