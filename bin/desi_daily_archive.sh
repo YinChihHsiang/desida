@@ -12,13 +12,14 @@ source ${DESIDA}/bin/desida_library.sh
 function usage() {
     local execName=$(basename $0)
     (
-    echo "${execName} [-h] [-j JOBS] [-s DIR] [-V] [-v]"
+    echo "${execName} [-B] [-h] [-j JOBS] [-s DIR] [-V] [-v]"
     echo ""
     echo "Generate checksum and backup jobs for spectro/redux/daily/tiles/archive."
     echo ""
     echo "Assuming files are on disk are in a clean, archival state, this script"
     echo "will create checksum files for the entire data set."
     echo ""
+    echo "    -B         = If set, do NOT submit batch jobs."
     echo "    -h         = Print this message and exit."
     echo "    -j JOBS    = Use JOBS directory to write batch files (default ${DESI_ROOT}/users/${USER}/jobs)."
     echo "    -s DIR     = Use DIR for temporary files (default ${SCRATCH})."
@@ -68,11 +69,13 @@ EOT
 #
 # Get options.
 #
+batch=true
 jobs=${DESI_ROOT}/users/${USER}/jobs
 scratch=${SCRATCH}
 verbose=false
 while getopts hj:s:Vv argname; do
     case ${argname} in
+        B) batch=false ;;
         h) usage; exit 0 ;;
         j) jobs=${OPTARG} ;;
         s) scratch=${OPTARG} ;;
@@ -107,3 +110,7 @@ for tile_dir in ${archive_dir}/*; do
         fi
     done
 done
+#
+# Submit a workflow job that will submit the batch jobs
+#
+${batch} && sbatch ${jobs}/submit_daily_tiles_archive.sh
