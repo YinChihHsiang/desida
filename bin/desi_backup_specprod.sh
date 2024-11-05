@@ -17,7 +17,7 @@ function usage() {
     echo ""
     echo "    -d DIR    = Use this directory on HPSS (default 'desi/spectro/redux')."
     echo "    -h        = Print this message and exit."
-    echo "    -j JOBS   = Use JOBS directory to write batch files (default ${HOME}/jobs)."
+    echo "    -j JOBS   = Use JOBS directory to write batch files (default ${DESI_ROOT}/users/${USER}/jobs)."
     echo "    -v        = Verbose mode. Print extra information."
     echo "    -V        = Version.  Print a version string and exit."
     echo ""
@@ -26,7 +26,7 @@ function usage() {
     ) >&2
 }
 hpss_dir='desi/spectro/redux'
-jobs=${HOME}/jobs
+jobs=${DESI_ROOT}/users/${USER}/jobs
 verbose=false
 while getopts d:hj:vV argname; do
     case ${argname} in
@@ -63,11 +63,12 @@ for d in ${DESI_SPECTRO_REDUX}/${SPECPROD}/${directory}/*; do
 #!/bin/bash
 #SBATCH --account=desi
 #SBATCH --qos=xfer
+#SBATCH --constraint=cron
 #SBATCH --time=12:00:00
 #SBATCH --mem=10GB
 #SBATCH --job-name=${job_name}
-#SBATCH --output=${jobs}/${job_name}-%j.log
-#SBATCH --licenses=cfs
+#SBATCH --output=${jobs}/%x-%j.log
+#SBATCH --licenses=cfs,scratch
 cd ${DESI_SPECTRO_REDUX}/${SPECPROD}/${directory}
 hsi mkdir -p ${hpss_dir}/${SPECPROD}/${directory}
 htar -cvf ${hpss_dir}/${SPECPROD}/${directory}/${job_name}.tar -H crc:verify=all ${n}
