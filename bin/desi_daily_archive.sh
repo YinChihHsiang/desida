@@ -73,7 +73,7 @@ batch=true
 jobs=${DESI_ROOT}/users/${USER}/jobs
 scratch=${SCRATCH}
 verbose=false
-while getopts hj:s:Vv argname; do
+while getopts Bhj:s:Vv argname; do
     case ${argname} in
         B) batch=false ;;
         h) usage; exit 0 ;;
