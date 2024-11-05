@@ -43,7 +43,7 @@ function create_archivedate_job() {
 #SBATCH --account=desi
 #SBATCH --qos=xfer
 #SBATCH --constraint=cron
-#SBATCH --time=4:00:00
+#SBATCH --time=30:00
 #SBATCH --job-name=${job_name}
 #SBATCH --output=${jobs}/%x-%j.log
 #SBATCH --licenses=cfs,scratch
