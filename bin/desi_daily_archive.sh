@@ -86,6 +86,7 @@ done
 #
 # Find TILEID/ARCHIVEDATE directories.
 #
+batch_jobs_created='False'
 archive_dir=${DESI_SPECTRO_REDUX}/daily/tiles/archive
 for tile_dir in ${archive_dir}/*; do
     tileid=$(basename ${tile_dir})
@@ -101,11 +102,18 @@ for tile_dir in ${archive_dir}/*; do
                 ${verbose} && echo "DEBUG: ${tileid}/${archivedate}/logs will be checksummed."
                 logs='True'
             fi
+            ${verbose} && echo "DEBUG: create_archivedate_job ${tileid} ${archivedate} ${logs}"
             create_archivedate_job ${tileid} ${archivedate} ${logs}
+            batch_jobs_created='True'
         fi
     done
 done
 #
 # Submit a workflow job that will submit the batch jobs.
 #
-${batch} && sbatch ${jobs}/submit_daily_tiles_archive.sh
+if [[ "${batch_jobs_created}" == "True" ]]; then
+    ${verbose} && echo "DEBUG: sbatch ${jobs}/submit_daily_tiles_archive.sh"
+    ${batch} && sbatch ${jobs}/submit_daily_tiles_archive.sh
+else
+    echo "INFO: No new data detected."
+fi
