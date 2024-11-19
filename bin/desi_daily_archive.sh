@@ -41,7 +41,7 @@ function create_archivedate_job() {
 #SBATCH --time=30:00
 #SBATCH --job-name=${job_name}
 #SBATCH --output=${jobs}/%x-%j.log
-#SBATCH --licenses=cfs,scratch
+#SBATCH --licenses=cfs,scratch,hpss
 source /global/common/software/desi/desi_environment.sh main
 module load desida desiBackup
 source \${DESIDA}/bin/desida_library.sh

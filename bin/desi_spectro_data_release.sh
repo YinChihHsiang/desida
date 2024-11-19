@@ -111,7 +111,7 @@ for night in $(cat ${redo} | sort -n | uniq); do
 #SBATCH --time=12:00:00
 #SBATCH --mem=10GB
 #SBATCH --job-name=${job_name}
-#SBATCH --licenses=cfs
+#SBATCH --licenses=cfs,hpss
 cd ${DESI_SPECTRO_DATA}
 htar -cvf desi/spectro/data/${job_name}.tar -H crc:verify=all ${night}
 [[ \$? == 0 ]] && mv -v /global/homes/d/desi/jobs/${job_name}.sh /global/homes/d/desi/jobs/done
