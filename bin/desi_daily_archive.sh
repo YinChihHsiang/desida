@@ -105,7 +105,7 @@ for tile_dir in ${archive_dir}/*; do
     for archivedate_dir in ${tile_dir}/*; do
         archivedate=$(basename ${archivedate_dir})
         checksum_file=${prefix}_${tileid}_${archivedate}.sha256sum
-        if [[ -f ${archivedate_dir}/${checksum_file} && grep -E -q "^${tileid},${archivedate}," ${status_file} ]]; then
+        if test -f ${archivedate_dir}/${checksum_file} && grep -E -q "^${tileid},${archivedate}," ${status_file}; then
             ${verbose} && echo "DEBUG: ${tileid}/${archivedate} has already been backed up."
         else
             echo "INFO: ${tileid}/${archivedate} will be backed up."
