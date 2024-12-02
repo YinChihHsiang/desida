@@ -57,7 +57,11 @@ sha256sum !(logs) > ${scratch}/${job_name}.sha256sum
 unlock_and_move ${scratch}/${job_name}.sha256sum
 cd \${DESI_SPECTRO_REDUX}/daily/tiles/archive
 htar -cvf desi/spectro/redux/daily/tiles/archive/${job_name}.tar -H crc:verify=all ${tileid}/${archivedate}
-[[ \$? == 0 ]] && mv -v ${jobs}/${job_name}.sh ${jobs}/done
+if [[ \$? == 0 ]]; then
+    mv -v ${jobs}/${job_name}.sh ${jobs}/done
+    ts=$(date +'%Y-%m-%dT%H:%M:%S%z')
+    echo ${tileid},${archivedate},${ts} >> ${jobs}/redux_daily_tiles_archive.csv
+fi
 EOT
     chmod +x ${jobs}/${job_name}.sh
 }
@@ -88,13 +92,21 @@ done
 #
 batch_jobs_created='False'
 archive_dir=${DESI_SPECTRO_REDUX}/daily/tiles/archive
+prefix=redux_daily_tiles_archive
+status_file=${jobs}/${prefix}.csv
+if [[ -f ${status_file} ]]; then
+    ${verbose} && echo "DEBUG: ${status_file} detected."
+else
+    echo "WARNING: ${status_file} not found, creating empty file."
+    echo "TILEID,NIGHT,BACKUP" > ${status_file}
+fi
 for tile_dir in ${archive_dir}/*; do
     tileid=$(basename ${tile_dir})
     for archivedate_dir in ${tile_dir}/*; do
         archivedate=$(basename ${archivedate_dir})
-        checksum_file=redux_daily_tiles_archive_${tileid}_${archivedate}.sha256sum
-        if [[ -f ${archivedate_dir}/${checksum_file} ]]; then
-            ${verbose} && echo "DEBUG: ${archivedate_dir}/${checksum_file} detected, skipping ${tileid}/${archivedate}."
+        checksum_file=${prefix}_${tileid}_${archivedate}.sha256sum
+        if [[ -f ${archivedate_dir}/${checksum_file} && grep -E -q "^${tileid},${archivedate}," ${status_file} ]]; then
+            ${verbose} && echo "DEBUG: ${tileid}/${archivedate} has already been backed up."
         else
             echo "INFO: ${tileid}/${archivedate} will be backed up."
             logs='False'
