@@ -68,7 +68,7 @@ for d in ${DESI_SPECTRO_REDUX}/${SPECPROD}/${directory}/*; do
 #SBATCH --mem=10GB
 #SBATCH --job-name=${job_name}
 #SBATCH --output=${jobs}/%x-%j.log
-#SBATCH --licenses=cfs,scratch
+#SBATCH --licenses=cfs,scratch,hpss
 cd ${DESI_SPECTRO_REDUX}/${SPECPROD}/${directory}
 hsi mkdir -p ${hpss_dir}/${SPECPROD}/${directory}
 htar -cvf ${hpss_dir}/${SPECPROD}/${directory}/${job_name}.tar -H crc:verify=all ${n}

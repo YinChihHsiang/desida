@@ -100,7 +100,7 @@ if ${jobs}; then
 #SBATCH --time=12:00:00
 #SBATCH --mem=10GB
 #SBATCH --job-name=${job_name}
-#SBATCH --licenses=cfs
+#SBATCH --licenses=cfs,hpss
 cd ${DESI_TARGET}
 hsi mkdir -p -m 2750 desi/public/${release}/target
 htar -cvf desi/public/${release}/target/${job_name}.tar -H crc:verify=all secondary
@@ -117,7 +117,7 @@ EOT
 #SBATCH --time=12:00:00
 #SBATCH --mem=10GB
 #SBATCH --job-name=${job_name}
-#SBATCH --licenses=cfs
+#SBATCH --licenses=cfs,hpss
 cd ${DESI_TARGET}/catalogs
 hsi mkdir -p -m 2750 desi/public/${release}/target/catalogs
 htar -cvf desi/public/${release}/target/catalogs/${job_name}.tar -H crc:verify=all subpriority
@@ -137,7 +137,7 @@ EOT
 #SBATCH --time=12:00:00
 #SBATCH --mem=10GB
 #SBATCH --job-name=${job_name}
-#SBATCH --licenses=cfs
+#SBATCH --licenses=cfs,hpss
 cd ${DESI_TARGET}/catalogs/${catalog}
 hsi mkdir -p -m 2750 desi/public/${release}/target/catalogs/${catalog}
 htar -cvf desi/public/${release}/target/catalogs/${catalog}/${job_name}.tar -H crc:verify=all ${v}
