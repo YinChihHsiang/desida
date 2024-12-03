@@ -59,8 +59,8 @@ cd \${DESI_SPECTRO_REDUX}/daily/tiles/archive
 htar -cvf desi/spectro/redux/daily/tiles/archive/${job_name}.tar -H crc:verify=all ${tileid}/${archivedate}
 if [[ \$? == 0 ]]; then
     mv -v ${jobs}/${job_name}.sh ${jobs}/done
-    ts=$(date +'%Y-%m-%dT%H:%M:%S%z')
-    echo ${tileid},${archivedate},${ts} >> ${jobs}/redux_daily_tiles_archive.csv
+    ts=\$(date +'%Y-%m-%dT%H:%M:%S%z')
+    echo "${tileid},${archivedate},\${ts}" >> ${jobs}/redux_daily_tiles_archive.csv
 fi
 EOT
     chmod +x ${jobs}/${job_name}.sh
