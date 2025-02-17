@@ -1,0 +1,294 @@
+#!/usr/bin/env python
+
+"""
+Script to download DESI DR1 data, finding healpix with most targets near a position.
+
+Authentication handling based on:
+https://github.com/segasai/desi_retriever/blob/master/py/desi_retriever/iron/fetcher.py
+"""
+
+import os
+import fsspec
+import aiohttp
+import urllib3
+import argparse
+from pathlib import Path
+import shutil
+import numpy as np
+import fitsio
+from astropy.table import Table
+
+urllib3.disable_warnings()
+
+class Settings:
+    DESI_USER = None
+    DESI_PASSWD = None
+
+# Based on https://github.com/segasai/desi_retriever/blob/master/py/desi_retriever/iron/fetcher.py
+def get_desi_login_password():
+    """Get DESI login credentials from ~/.desi_http_user file"""
+    if Settings.DESI_USER is None:
+        config = os.path.join(os.environ['HOME'], '.desi_http_user')
+        if not os.path.exists(config):
+            raise Exception('''You need to specify the DESI_USER/DESI_PASSWD.
+Put them in $HOME/.desi_http_user like that:
+username:password
+''')
+        user, pwd = open(config).read().rstrip().split(':')
+        Settings.DESI_USER, Settings.DESI_PASSWD = user, pwd
+    return Settings.DESI_USER, Settings.DESI_PASSWD
+
+def find_best_healpix(catalog_file, center_ra, center_dec, radius=0.5):
+    """
+    Find healpix with most targets within radius of center position
+    
+    Parameters:
+        catalog_file (str): Path to zall-pix-iron.fits catalog
+        center_ra (float): Center right ascension in degrees
+        center_dec (float): Center declination in degrees
+        radius (float): Search radius in degrees
+        
+    Returns:
+        int: Healpix ID with most targets in search area
+    """
+    # Read relevant columns from catalog
+    data = fitsio.read(catalog_file, columns=['TARGET_RA', 'TARGET_DEC', 'HEALPIX'], ext=1)
+    
+    # Convert coordinates to radians for spherical geometry
+    ra_rad = np.radians(data['TARGET_RA'])
+    dec_rad = np.radians(data['TARGET_DEC'])
+    center_ra_rad = np.radians(center_ra)
+    center_dec_rad = np.radians(center_dec)
+    
+    # Haversine formula for angular separation
+    dlon = ra_rad - center_ra_rad
+    dlat = dec_rad - center_dec_rad
+    a = np.sin(dlat/2)**2 + np.cos(dec_rad) * np.cos(center_dec_rad) * np.sin(dlon/2)**2
+    dist_rad = 2 * np.arcsin(np.sqrt(a))
+    dist_deg = np.degrees(dist_rad)
+    
+    # Find objects within search radius
+    mask = dist_deg <= radius
+    nearby_targets = data[mask]
+    
+    # Count targets per healpix
+    unique_pix, counts = np.unique(nearby_targets['HEALPIX'], return_counts=True)
+    
+    print("\nHealpix analysis within search radius:")
+    for pix, count in sorted(zip(unique_pix, counts)):
+        print(f"HEALPIX {pix}: {count} targets")
+    
+    # Get healpix with most targets
+    top_healpix = unique_pix[np.argmax(counts)]
+    return top_healpix
+
+def get_healpix_path(healpix_id):
+    """Construct the healpix path based on the ID"""
+    healpix_str = str(healpix_id)
+    prefix = healpix_str if len(healpix_str) < 3 else healpix_str[:3]
+    return prefix, f"{prefix}/{healpix_str}"
+
+def list_directory(url, auth=None):
+    """List contents of a directory on DESI server"""
+    options = {}
+    if auth is not None:
+        options['auth'] = aiohttp.BasicAuth(auth[0], auth[1])
+    
+    try:
+        fs = fsspec.filesystem('https', **options)
+        entries = fs.ls(url)
+        if entries and isinstance(entries[0], dict):
+            entries = [entry['name'] for entry in entries]
+        return entries
+    except Exception as e:
+        print(f"Error listing directory {url}: {str(e)}")
+        return None
+
+def download_file(url, local_path, auth=None):
+    """Download a file from DESI server if it doesn't exist locally"""
+    if os.path.exists(local_path):
+        print(f"File already exists, skipping: {local_path}")
+        return True
+        
+    os.makedirs(os.path.dirname(local_path), exist_ok=True)
+    
+    options = {}
+    if auth is not None:
+        options['auth'] = aiohttp.BasicAuth(auth[0], auth[1])
+    
+    try:
+        with fsspec.open(url, 'rb', **options) as src:
+            with open(local_path, 'wb') as dst:
+                shutil.copyfileobj(src, dst)
+        print(f"Downloaded{' (with auth)' if auth else ''}: {local_path}")
+        return True
+    except Exception as e:
+        print(f"Error downloading {url}: {str(e)}")
+        return False
+
+def download_directory(url, local_base_path, remote_base_url, auth=None):
+    """Download all files in a directory"""
+    contents = list_directory(url, auth)
+    
+    if contents is None:
+        if auth is None:
+            try:
+                user, pwd = get_desi_login_password()
+                print("Retrying directory listing with authentication...")
+                return download_directory(url, local_base_path, remote_base_url, (user, pwd))
+            except Exception as e:
+                print(f"Error with credentials: {str(e)}")
+                return False
+        return False
+    
+    success = True
+    for item_url in contents:
+        if str(item_url).endswith('/'):
+            continue
+            
+        rel_path = item_url[len(remote_base_url):] if item_url.startswith(remote_base_url) else os.path.basename(item_url)
+        local_path = os.path.join(local_base_path, rel_path)
+        
+        if not download_file(item_url, local_path, auth):
+            if auth is None:
+                try:
+                    user, pwd = get_desi_login_password()
+                    print("Retrying file with authentication...")
+                    success &= download_file(item_url, local_path, (user, pwd))
+                except Exception as e:
+                    print(f"Error with credentials: {str(e)}")
+                    success = False
+            else:
+                success = False
+    
+    return success
+
+def download_desi_file(remote_url, local_base_path, remote_base_url):
+    """Download a single DESI file, trying first without authentication"""
+    rel_path = remote_url[len(remote_base_url):] if remote_url.startswith(remote_base_url) else ''
+    local_path = os.path.join(local_base_path, rel_path)
+    
+    if download_file(remote_url, local_path):
+        return True
+        
+    try:
+        user, pwd = get_desi_login_password()
+        print("Retrying with authentication...")
+        return download_file(remote_url, local_path, (user, pwd))
+    except Exception as e:
+        print(f"Error with credentials: {str(e)}")
+        return False
+
+def get_tile_date(remote_base_url, tileid, auth=None):
+    """Get the most recent date directory for a tile"""
+    tile_url = f"{remote_base_url}spectro/redux/iron/tiles/cumulative/{tileid}/"
+    contents = list_directory(tile_url, auth)
+    
+    if contents is None:
+        if auth is None:
+            try:
+                user, pwd = get_desi_login_password()
+                return get_tile_date(remote_base_url, tileid, (user, pwd))
+            except Exception:
+                return None
+        return None
+    
+    # Filter for date-like directories (8 digits) and get the latest
+    date_dirs = [os.path.basename(d.rstrip('/')) for d in contents if d.rstrip('/').split('/')[-1].isdigit() and len(d.rstrip('/').split('/')[-1]) == 8]
+    return max(date_dirs) if date_dirs else None
+
+def analyze_tiles(redrock_file, max_tiles=1):
+    """
+    Analyze tileIDs from redrock file and return top N tiles by target count
+    
+    Parameters:
+        redrock_file (str): Path to redrock FITS file
+        max_tiles (int): Maximum number of tiles to return (default: 3)
+    """
+    try:
+        r = Table.read(redrock_file, hdu=3)
+        unique_values, counts = np.unique(r['TILEID'], return_counts=True)
+        
+        # Sort tiles by count in descending order
+        sorted_indices = np.argsort(counts)[::-1]
+        sorted_tileids = unique_values[sorted_indices]
+        sorted_counts = counts[sorted_indices]
+        
+        print("\nTile analysis (sorted by target count):")
+        for tileid, count in zip(sorted_tileids, sorted_counts):
+            print(f"TILEID {tileid}: {count} targets")
+        
+        # Return top N tiles
+        top_tiles = sorted_tileids[:max_tiles]
+        print(f"\nSelecting top {max_tiles} tiles: {', '.join(map(str, top_tiles))}")
+        return top_tiles
+    except Exception as e:
+        print(f"Error analyzing redrock file: {str(e)}")
+        return None
+
+def main():
+    parser = argparse.ArgumentParser(description='Download DESI DR1 data for targets near a position')
+    parser.add_argument('--ra', type=float, default=150.11916667, help='Center right ascension in degrees (default: 150.11916667)')
+    parser.add_argument('--dec', type=float, default=2.20583333, help='Center declination in degrees (default: 2.20583333)')
+    parser.add_argument('--radius', type=float, default=0.5, help='Search radius in degrees (default: 0.5)')
+    parser.add_argument('--base-dir', default='./tiny_dr1', help='Base directory for downloads')
+    args = parser.parse_args()
+    
+    remote_base_url = 'https://data.desi.lbl.gov/public/dr1/'
+    local_base_path = args.base_dir
+    
+    print(f"Starting downloads from {remote_base_url}")
+    print(f"Files will be saved to {local_base_path}")
+    print(f"\nSearching for targets around RA={args.ra}, Dec={args.dec} with radius={args.radius} degrees")
+    
+    # Download redshift catalog first
+    print("\nDownloading redshift catalog...")
+    catalog_url = remote_base_url + 'spectro/redux/iron/zcatalog/v1/zall-pix-iron.fits'
+    catalog_file = os.path.join(local_base_path, 'spectro/redux/iron/zcatalog/v1/zall-pix-iron.fits')
+    success = download_desi_file(catalog_url, local_base_path, remote_base_url)
+    
+    if not success:
+        print("Failed to download redshift catalog. Cannot continue.")
+        return
+    
+    # Find best healpix
+    healpix_id = find_best_healpix(catalog_file, args.ra, args.dec, args.radius)
+    print(f"\nSelected HEALPIX {healpix_id} with most targets in search region")
+    
+    # Download healpix files
+    print(f"\nDownloading files for healpix {healpix_id}...")
+    prefix, healpix_path = get_healpix_path(healpix_id)
+    healpix_url = remote_base_url + f'spectro/redux/iron/healpix/main/dark/{healpix_path}/'
+    success = download_directory(healpix_url, local_base_path, remote_base_url)
+    
+    # Analyze redrock file
+    redrock_file = os.path.join(local_base_path, 
+                               f'spectro/redux/iron/healpix/main/dark/{healpix_path}',
+                               f'redrock-main-dark-{healpix_id}.fits')
+    
+    print("\nAnalyzing redrock file for tileIDs...")
+    tileids = analyze_tiles(redrock_file)
+    
+    if tileids is not None:
+        # Download tile data
+        print("\nDownloading tile data...")
+        for tileid in tileids:
+            print(f"\nProcessing TILEID {tileid}...")
+            
+            # Get the date directory
+            date = get_tile_date(remote_base_url, tileid)
+            if date is None:
+                print(f"Could not find date directory for tile {tileid}")
+                continue
+                
+            print(f"Found date directory: {date}")
+            tile_url = f"{remote_base_url}spectro/redux/iron/tiles/cumulative/{tileid}/{date}/"
+            success &= download_directory(tile_url, local_base_path, remote_base_url)
+    
+    if success:
+        print("\nAll downloads completed successfully!")
+    else:
+        print("\nDownloads completed with some errors. Please check the messages above.")
+
+if __name__ == "__main__":
+    main()
