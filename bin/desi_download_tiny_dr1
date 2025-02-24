@@ -3,20 +3,21 @@
 """
 Script to download DESI DR1 data, finding healpix with most targets near a position.
 
-Authentication handling based on:
-https://github.com/segasai/desi_retriever/blob/master/py/desi_retriever/iron/fetcher.py
+Uses standard libraries and requests instead of fsspec and aiohttp.
 """
 
 import os
-import fsspec
-import aiohttp
-import urllib3
 import argparse
 from pathlib import Path
 import shutil
 import numpy as np
 import fitsio
 from astropy.table import Table
+import requests
+import urllib3
+from urllib.parse import urljoin
+import re
+from html.parser import HTMLParser
 
 urllib3.disable_warnings()
 
@@ -24,7 +25,18 @@ class Settings:
     DESI_USER = None
     DESI_PASSWD = None
 
-# Based on https://github.com/segasai/desi_retriever/blob/master/py/desi_retriever/iron/fetcher.py
+class DirListParser(HTMLParser):
+    """Simple HTML parser to extract directory listing links"""
+    def __init__(self):
+        super().__init__()
+        self.links = []
+        
+    def handle_starttag(self, tag, attrs):
+        if tag == 'a':
+            for name, value in attrs:
+                if name == 'href':
+                    self.links.append(value)
+
 def get_desi_login_password():
     """Get DESI login credentials from ~/.desi_http_user file"""
     if Settings.DESI_USER is None:
@@ -89,17 +101,28 @@ def get_healpix_path(healpix_id):
     return prefix, f"{prefix}/{healpix_str}"
 
 def list_directory(url, auth=None):
-    """List contents of a directory on DESI server"""
-    options = {}
-    if auth is not None:
-        options['auth'] = aiohttp.BasicAuth(auth[0], auth[1])
+    """List contents of a directory on DESI server using requests instead of fsspec"""
+    headers = {}
     
     try:
-        fs = fsspec.filesystem('https', **options)
-        entries = fs.ls(url)
-        if entries and isinstance(entries[0], dict):
-            entries = [entry['name'] for entry in entries]
-        return entries
+        if auth is not None:
+            response = requests.get(url, auth=auth, verify=False)
+        else:
+            response = requests.get(url, verify=False)
+        
+        if response.status_code == 200:
+            # Parse HTML to get links
+            parser = DirListParser()
+            parser.feed(response.text)
+            
+            # Filter out parent directory and create full URLs
+            entries = [urljoin(url, link) for link in parser.links 
+                      if not link == "../" and not link == "./"]
+            
+            return entries
+        else:
+            print(f"Error listing directory {url}: HTTP status {response.status_code}")
+            return None
     except Exception as e:
         print(f"Error listing directory {url}: {str(e)}")
         return None
@@ -112,14 +135,18 @@ def download_file(url, local_path, auth=None):
         
     os.makedirs(os.path.dirname(local_path), exist_ok=True)
     
-    options = {}
-    if auth is not None:
-        options['auth'] = aiohttp.BasicAuth(auth[0], auth[1])
-    
     try:
-        with fsspec.open(url, 'rb', **options) as src:
-            with open(local_path, 'wb') as dst:
-                shutil.copyfileobj(src, dst)
+        if auth is not None:
+            response = requests.get(url, auth=auth, stream=True, verify=False)
+        else:
+            response = requests.get(url, stream=True, verify=False)
+        
+        response.raise_for_status()
+        
+        with open(local_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        
         print(f"Downloaded{' (with auth)' if auth else ''}: {local_path}")
         return True
     except Exception as e:
@@ -143,7 +170,8 @@ def download_directory(url, local_base_path, remote_base_url, auth=None):
     
     success = True
     for item_url in contents:
-        if str(item_url).endswith('/'):
+        # Skip directories
+        if item_url.endswith('/'):
             continue
             
         rel_path = item_url[len(remote_base_url):] if item_url.startswith(remote_base_url) else os.path.basename(item_url)
@@ -194,7 +222,14 @@ def get_tile_date(remote_base_url, tileid, auth=None):
         return None
     
     # Filter for date-like directories (8 digits) and get the latest
-    date_dirs = [os.path.basename(d.rstrip('/')) for d in contents if d.rstrip('/').split('/')[-1].isdigit() and len(d.rstrip('/').split('/')[-1]) == 8]
+    date_dirs = []
+    for d in contents:
+        if d.endswith('/'):
+            # Extract the directory name and check if it's 8 digits
+            dirname = os.path.basename(d.rstrip('/'))
+            if dirname.isdigit() and len(dirname) == 8:
+                date_dirs.append(dirname)
+    
     return max(date_dirs) if date_dirs else None
 
 def analyze_tiles(redrock_file, max_tiles=1):
@@ -203,7 +238,7 @@ def analyze_tiles(redrock_file, max_tiles=1):
     
     Parameters:
         redrock_file (str): Path to redrock FITS file
-        max_tiles (int): Maximum number of tiles to return (default: 3)
+        max_tiles (int): Maximum number of tiles to return
     """
     try:
         r = Table.read(redrock_file, hdu=3)
