@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """
 Script to download a tiny subset of DESI data, finding healpix with most targets near a position.
-Uses standard libraries and requests instead of fsspec and aiohttp.
 """
 
 import os
