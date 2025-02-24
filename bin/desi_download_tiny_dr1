@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Script to download a tiny subset (31GB) of DESI DR1 data, finding healpix with most targets near a position.
+Script to download a tiny subset of DESI data, finding healpix with most targets near a position.
 Uses standard libraries and requests instead of fsspec and aiohttp.
 """
 
@@ -22,6 +22,12 @@ urllib3.disable_warnings()
 class Settings:
     DESI_USER = None
     DESI_PASSWD = None
+
+# Dictionary mapping data releases to their primary specprod
+DR_SPECPROD_MAP = {
+    'dr1': 'iron', 
+    'dr2': 'loa'
+}
 
 class DirListParser(HTMLParser):
     """Simple HTML parser to extract directory listing links"""
@@ -53,7 +59,7 @@ def find_best_healpix(catalog_file, center_ra, center_dec, radius=0.5):
     Find healpix with most targets within radius of center position
     
     Parameters:
-        catalog_file (str): Path to zall-pix-iron.fits catalog
+        catalog_file (str): Path to zall-pix-{specprod}.fits catalog
         center_ra (float): Center right ascension in degrees
         center_dec (float): Center declination in degrees
         radius (float): Search radius in degrees
@@ -99,7 +105,7 @@ def get_healpix_path(healpix_id):
     return prefix, f"{prefix}/{healpix_str}"
 
 def list_directory(url, auth=None):
-    """List contents of a directory on DESI server using requests instead of fsspec"""
+    """List contents of a directory on DESI server using requests"""
     headers = {}
     
     try:
@@ -134,11 +140,8 @@ def download_file(url, local_path, auth=None):
     os.makedirs(os.path.dirname(local_path), exist_ok=True)
     
     try:
-        if auth is not None:
-            response = requests.get(url, auth=auth, stream=True, verify=False)
-        else:
-            response = requests.get(url, stream=True, verify=False)
-        
+        # Try with provided auth or no auth initially
+        response = requests.get(url, auth=auth, stream=True, verify=False)
         response.raise_for_status()
         
         # Use a temporary file to prevent corrupt downloads
@@ -152,6 +155,18 @@ def download_file(url, local_path, auth=None):
         
         print(f"Downloaded{' (with auth)' if auth else ''}: {local_path}")
         return True
+    except requests.exceptions.HTTPError as e:
+        # If unauthorized and no auth provided, try to get credentials
+        if e.response.status_code == 401 and auth is None:
+            try:
+                user, pwd = get_desi_login_password()
+                print("Retrying with authentication...")
+                return download_file(url, local_path, (user, pwd))
+            except Exception as auth_e:
+                print(f"Error with credentials: {str(auth_e)}")
+                return False
+        print(f"Error downloading {url}: {str(e)}")
+        return False
     except Exception as e:
         print(f"Error downloading {url}: {str(e)}")
         return False
@@ -180,17 +195,8 @@ def download_directory(url, local_base_path, remote_base_url, auth=None):
         rel_path = item_url[len(remote_base_url):] if item_url.startswith(remote_base_url) else os.path.basename(item_url)
         local_path = os.path.join(local_base_path, rel_path)
         
-        if not download_file(item_url, local_path, auth):
-            if auth is None:
-                try:
-                    user, pwd = get_desi_login_password()
-                    print("Retrying file with authentication...")
-                    success &= download_file(item_url, local_path, (user, pwd))
-                except Exception as e:
-                    print(f"Error with credentials: {str(e)}")
-                    success = False
-            else:
-                success = False
+        # download_file now handles auth retry internally
+        success &= download_file(item_url, local_path, auth)
     
     return success
 
@@ -199,27 +205,19 @@ def download_desi_file(remote_url, local_base_path, remote_base_url):
     rel_path = remote_url[len(remote_base_url):] if remote_url.startswith(remote_base_url) else ''
     local_path = os.path.join(local_base_path, rel_path)
     
-    if download_file(remote_url, local_path):
-        return True
-        
-    try:
-        user, pwd = get_desi_login_password()
-        print("Retrying with authentication...")
-        return download_file(remote_url, local_path, (user, pwd))
-    except Exception as e:
-        print(f"Error with credentials: {str(e)}")
-        return False
+    # Authentication retry is now handled inside download_file
+    return download_file(remote_url, local_path)
 
-def get_tile_date(remote_base_url, tileid, auth=None):
+def get_tile_date(remote_base_url, tileid, specprod, auth=None):
     """Get the most recent date directory for a tile"""
-    tile_url = f"{remote_base_url}spectro/redux/iron/tiles/cumulative/{tileid}/"
+    tile_url = f"{remote_base_url}spectro/redux/{specprod}/tiles/cumulative/{tileid}/"
     contents = list_directory(tile_url, auth)
     
     if contents is None:
         if auth is None:
             try:
                 user, pwd = get_desi_login_password()
-                return get_tile_date(remote_base_url, tileid, (user, pwd))
+                return get_tile_date(remote_base_url, tileid, specprod, (user, pwd))
             except Exception:
                 return None
         return None
@@ -264,26 +262,149 @@ def analyze_tiles(redrock_file, max_tiles=1):
         print(f"Error analyzing redrock file: {str(e)}")
         return None
 
-def main():
-    parser = argparse.ArgumentParser(description='Download DESI DR1 data for targets near a position')
-    parser.add_argument('--ra', type=float, default=150.11916667, help='Center right ascension in degrees (default: 150.11916667)')
-    parser.add_argument('--dec', type=float, default=2.20583333, help='Center declination in degrees (default: 2.20583333)')
-    parser.add_argument('--radius', type=float, default=0.5, help='Search radius in degrees (default: 0.5)')
-    parser.add_argument('--base-dir', default='./tiny_dr1', help='Base directory for downloads')
-    args = parser.parse_args()
+def get_base_url(data_release=None, specprod=None):
+    """
+    Determine the appropriate base URL based on data release and specprod.
     
-    remote_base_url = 'https://data.desi.lbl.gov/public/dr1/'
-    local_base_path = args.base_dir
+    Parameters:
+        data_release (str): Data release identifier (e.g., 'dr1', 'dr2')
+        specprod (str): Spectroscopic production name (e.g., 'iron', 'loa')
+        
+    Returns:
+        tuple: (base_url, specprod_to_use, requires_auth)
+    """
+    requires_auth = False
+    
+    # DR2 is not public yet, use proprietary URL
+    if data_release == 'dr2':
+        requires_auth = True
+        specprod_to_use = specprod or 'loa'
+        return 'https://data.desi.lbl.gov/desi/', specprod_to_use, requires_auth
+    
+    # Case 1: Both data_release and specprod provided
+    if data_release and specprod:
+        # Check if this is a known DR/specprod combination
+        if data_release in DR_SPECPROD_MAP and DR_SPECPROD_MAP[data_release] == specprod:
+            base_url = f'https://data.desi.lbl.gov/public/{data_release}/'
+            return base_url, specprod, requires_auth
+        else:
+            # Custom specprod - need authentication
+            requires_auth = True
+            return 'https://data.desi.lbl.gov/desi/', specprod, requires_auth
+    
+    # Case 2: Only data_release provided
+    elif data_release and not specprod:
+        if data_release in DR_SPECPROD_MAP:
+            base_url = f'https://data.desi.lbl.gov/public/{data_release}/'
+            specprod_to_use = DR_SPECPROD_MAP[data_release]
+            return base_url, specprod_to_use, requires_auth
+        else:
+            print(f"Unknown data release: {data_release}. Using default dr1/iron.")
+            base_url = 'https://data.desi.lbl.gov/public/dr1/'
+            return base_url, 'iron', requires_auth
+    
+    # Case 3: Only specprod provided
+    elif not data_release and specprod:
+        # Check if this specprod is associated with a known DR
+        for dr, sp in DR_SPECPROD_MAP.items():
+            if sp == specprod:
+                # Handle dr2 specially as non-public
+                if dr == 'dr2':
+                    requires_auth = True
+                    return 'https://data.desi.lbl.gov/desi/', specprod, requires_auth
+                else:
+                    base_url = f'https://data.desi.lbl.gov/public/{dr}/'
+                    return base_url, specprod, requires_auth
+        
+        # If not found in known DRs, use proprietary URL
+        requires_auth = True
+        return 'https://data.desi.lbl.gov/desi/', specprod, requires_auth
+    
+    # Case 4: Neither provided - use default dr1/iron
+    else:
+        base_url = 'https://data.desi.lbl.gov/public/dr1/'
+        return base_url, 'iron', requires_auth
+
+def main():
+    """
+    Main function to run the DESI data downloader.
+    Default coordinates (RA=150.11916667, Dec=2.20583333) point to the center of the 
+    COSMOS field, which typically results in downloading healpix 23040 for tutorial purposes.
+    """
+    parser = argparse.ArgumentParser(
+        description='Download DESI data for targets near a position. The default coordinates '
+                    'target the center of the COSMOS field, which typically retrieves healpix '
+                    '23040 for tutorial purposes.')
+    parser.add_argument('--ra', type=float, default=150.11916667, 
+                        help='Center right ascension in degrees (default: 150.11916667, COSMOS field center)')
+    parser.add_argument('--dec', type=float, default=2.20583333, 
+                        help='Center declination in degrees (default: 2.20583333, COSMOS field center)')
+    parser.add_argument('--radius', type=float, default=0.5, help='Search radius in degrees (default: 0.5)')
+    parser.add_argument('--dr', default='dr1', help='Data release (e.g., dr1, dr2). Default: dr1')
+    parser.add_argument('--specprod', help='Spectroscopic production name (e.g., iron, loa)')
+    
+    # Default output directory based on data release
+    default_dir = lambda dr: f"./tiny_{dr.lower()}"
+    parser.add_argument('--base-dir', help=f'Base directory for downloads (default: depends on data release, e.g., ./tiny_dr1)')
+    args = parser.parse_args()
+    # No need to validate dr/specprod since dr has a default value
+    
+    # Determine the appropriate base URL and specprod
+    remote_base_url, specprod, requires_auth = get_base_url(args.dr, args.specprod)
+    
+    # Set base directory if not explicitly provided
+    if args.base_dir is None:
+        if args.dr:
+            local_base_path = f"./tiny_{args.dr.lower()}"
+        else:
+            # If only specprod is provided, use it for the directory name
+            local_base_path = f"./tiny_{specprod.lower()}"
+    else:
+        local_base_path = args.base_dir
+    
+    auth = None
+    if requires_auth:
+        try:
+            user, pwd = get_desi_login_password()
+            auth = (user, pwd)
+            print(f"Using authenticated access for {specprod}")
+        except Exception as e:
+            print(f"Error getting credentials: {str(e)}")
+            return
     
     print(f"Starting downloads from {remote_base_url}")
+    print(f"Using spectroscopic production: {specprod}")
     print(f"Files will be saved to {local_base_path}")
     print(f"\nSearching for targets around RA={args.ra}, Dec={args.dec} with radius={args.radius} degrees")
+    print("(Default coordinates target the COSMOS field center, typically retrieving healpix 23040)")
     
-    # Download redshift catalog first
+    # First download the tiles and exposures CSV files
+    print("\nDownloading tile and exposure CSV files...")
+    
+    # Tiles CSV
+    tiles_url = f"{remote_base_url}spectro/redux/{specprod}/tiles-{specprod}.csv"
+    tiles_file = os.path.join(local_base_path, f'spectro/redux/{specprod}/tiles-{specprod}.csv')
+    tiles_success = download_file(tiles_url, tiles_file, auth)
+    
+    if not tiles_success:
+        print(f"Warning: Failed to download tiles CSV file: {tiles_url}")
+    
+    # Exposures CSV
+    exposures_url = f"{remote_base_url}spectro/redux/{specprod}/exposures-{specprod}.csv"
+    exposures_file = os.path.join(local_base_path, f'spectro/redux/{specprod}/exposures-{specprod}.csv')
+    exposures_success = download_file(exposures_url, exposures_file, auth)
+    
+    if not exposures_success:
+        print(f"Warning: Failed to download exposures CSV file: {exposures_url}")
+    
+    # Download redshift catalog
     print("\nDownloading redshift catalog...")
-    catalog_url = remote_base_url + 'spectro/redux/iron/zcatalog/v1/zall-pix-iron.fits'
-    catalog_file = os.path.join(local_base_path, 'spectro/redux/iron/zcatalog/v1/zall-pix-iron.fits')
-    success = download_desi_file(catalog_url, local_base_path, remote_base_url)
+    
+    # Construct catalog URL
+    catalog_url = f"{remote_base_url}spectro/redux/{specprod}/zcatalog/v1/zall-pix-{specprod}.fits"
+    catalog_file = os.path.join(local_base_path, f'spectro/redux/{specprod}/zcatalog/v1/zall-pix-{specprod}.fits')
+    
+    success = download_file(catalog_url, catalog_file, auth)
     
     if not success:
         print("Failed to download redshift catalog. Cannot continue.")
@@ -296,12 +417,14 @@ def main():
     # Download healpix files
     print(f"\nDownloading files for healpix {healpix_id}...")
     prefix, healpix_path = get_healpix_path(healpix_id)
-    healpix_url = remote_base_url + f'spectro/redux/iron/healpix/main/dark/{healpix_path}/'
-    success = download_directory(healpix_url, local_base_path, remote_base_url)
+    
+    # Construct healpix URL
+    healpix_url = f"{remote_base_url}spectro/redux/{specprod}/healpix/main/dark/{healpix_path}/"
+    success = download_directory(healpix_url, local_base_path, remote_base_url, auth)
     
     # Analyze redrock file
     redrock_file = os.path.join(local_base_path, 
-                               f'spectro/redux/iron/healpix/main/dark/{healpix_path}',
+                               f'spectro/redux/{specprod}/healpix/main/dark/{healpix_path}',
                                f'redrock-main-dark-{healpix_id}.fits')
     
     print("\nAnalyzing redrock file for tileIDs...")
@@ -314,14 +437,16 @@ def main():
             print(f"\nProcessing TILEID {tileid}...")
             
             # Get the date directory
-            date = get_tile_date(remote_base_url, tileid)
+            date = get_tile_date(remote_base_url, tileid, specprod, auth)
             if date is None:
                 print(f"Could not find date directory for tile {tileid}")
                 continue
                 
             print(f"Found date directory: {date}")
-            tile_url = f"{remote_base_url}spectro/redux/iron/tiles/cumulative/{tileid}/{date}/"
-            success &= download_directory(tile_url, local_base_path, remote_base_url)
+            
+            # Construct tile URL
+            tile_url = f"{remote_base_url}spectro/redux/{specprod}/tiles/cumulative/{tileid}/{date}/"
+            success &= download_directory(tile_url, local_base_path, remote_base_url, auth)
     
     if success:
         print("\nAll downloads completed successfully!")
