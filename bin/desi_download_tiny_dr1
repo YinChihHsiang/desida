@@ -1,8 +1,6 @@
 #!/usr/bin/env python
-
 """
 Script to download a tiny subset (31GB) of DESI DR1 data, finding healpix with most targets near a position.
-
 Uses standard libraries and requests instead of fsspec and aiohttp.
 """
 
@@ -143,9 +141,14 @@ def download_file(url, local_path, auth=None):
         
         response.raise_for_status()
         
-        with open(local_path, 'wb') as f:
+        # Use a temporary file to prevent corrupt downloads
+        tmpfile = local_path + '.downloading'
+        with open(tmpfile, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
+        
+        # Rename only after successful download
+        os.rename(tmpfile, local_path)
         
         print(f"Downloaded{' (with auth)' if auth else ''}: {local_path}")
         return True
