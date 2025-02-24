@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Script to download DESI DR1 data, finding healpix with most targets near a position.
+Script to download a tiny subset (31GB) of DESI DR1 data, finding healpix with most targets near a position.
 
 Uses standard libraries and requests instead of fsspec and aiohttp.
 """
