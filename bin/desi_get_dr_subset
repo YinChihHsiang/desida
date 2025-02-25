@@ -130,8 +130,26 @@ def list_directory(url, auth=None):
         print(f"Error listing directory {url}: {str(e)}")
         return None
 
-def download_file(url, local_path, auth=None):
-    """Download a file from DESI server if it doesn't exist locally"""
+def download_file(url, local_path=None, remote_base_url=None, auth=None, local_base_path=None):
+    """
+    Download a file from DESI server if it doesn't exist locally
+    
+    Parameters:
+        url (str): URL of the file to download
+        local_path (str, optional): Local path to save file. If None and remote_base_url 
+                                   is provided, will be constructed from url
+        remote_base_url (str, optional): Base URL to calculate relative path
+        auth (tuple, optional): (username, password) tuple
+        local_base_path (str, optional): Base directory for local file storage
+    """
+    # Handle path construction if local_path not provided
+    if local_path is None:
+        if remote_base_url is not None and local_base_path is not None:
+            rel_path = url[len(remote_base_url):] if url.startswith(remote_base_url) else os.path.basename(url)
+            local_path = os.path.join(local_base_path, rel_path)
+        else:
+            raise ValueError("Either local_path or both remote_base_url and local_base_path must be provided")
+    
     if os.path.exists(local_path):
         print(f"File already exists, skipping: {local_path}")
         return True
@@ -160,7 +178,7 @@ def download_file(url, local_path, auth=None):
             try:
                 user, pwd = get_desi_login_password()
                 print("Retrying with authentication...")
-                return download_file(url, local_path, (user, pwd))
+                return download_file(url, local_path, remote_base_url, (user, pwd), local_base_path)
             except Exception as auth_e:
                 print(f"Error with credentials: {str(auth_e)}")
                 return False
@@ -190,22 +208,12 @@ def download_directory(url, local_base_path, remote_base_url, auth=None):
         # Skip directories
         if item_url.endswith('/'):
             continue
-            
-        rel_path = item_url[len(remote_base_url):] if item_url.startswith(remote_base_url) else os.path.basename(item_url)
-        local_path = os.path.join(local_base_path, rel_path)
         
-        # download_file now handles auth retry internally
-        success &= download_file(item_url, local_path, auth)
+        # Use the consolidated download_file function
+        success &= download_file(item_url, remote_base_url=remote_base_url, 
+                               local_base_path=local_base_path, auth=auth)
     
     return success
-
-def download_desi_file(remote_url, local_base_path, remote_base_url):
-    """Download a single DESI file, trying first without authentication"""
-    rel_path = remote_url[len(remote_base_url):] if remote_url.startswith(remote_base_url) else ''
-    local_path = os.path.join(local_base_path, rel_path)
-    
-    # Authentication retry is now handled inside download_file
-    return download_file(remote_url, local_path)
 
 def get_tile_date(remote_base_url, tileid, specprod, auth=None):
     """Get the most recent date directory for a tile"""
@@ -383,7 +391,7 @@ def main():
     # Tiles CSV
     tiles_url = f"{remote_base_url}spectro/redux/{specprod}/tiles-{specprod}.csv"
     tiles_file = os.path.join(local_base_path, f'spectro/redux/{specprod}/tiles-{specprod}.csv')
-    tiles_success = download_file(tiles_url, tiles_file, auth)
+    tiles_success = download_file(tiles_url, tiles_file, auth=auth)
     
     if not tiles_success:
         print(f"Warning: Failed to download tiles CSV file: {tiles_url}")
@@ -391,7 +399,7 @@ def main():
     # Exposures CSV
     exposures_url = f"{remote_base_url}spectro/redux/{specprod}/exposures-{specprod}.csv"
     exposures_file = os.path.join(local_base_path, f'spectro/redux/{specprod}/exposures-{specprod}.csv')
-    exposures_success = download_file(exposures_url, exposures_file, auth)
+    exposures_success = download_file(exposures_url, exposures_file, auth=auth)
     
     if not exposures_success:
         print(f"Warning: Failed to download exposures CSV file: {exposures_url}")
@@ -403,7 +411,7 @@ def main():
     catalog_url = f"{remote_base_url}spectro/redux/{specprod}/zcatalog/v1/zall-pix-{specprod}.fits"
     catalog_file = os.path.join(local_base_path, f'spectro/redux/{specprod}/zcatalog/v1/zall-pix-{specprod}.fits')
     
-    success = download_file(catalog_url, catalog_file, auth)
+    success = download_file(catalog_url, catalog_file, auth=auth)
     
     if not success:
         print("Failed to download redshift catalog. Cannot continue.")
