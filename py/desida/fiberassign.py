@@ -9,9 +9,13 @@ Tools for working with *intermediate* fiberassign files, *i.e.* ``${DESI_ROOT}/s
 import os
 import sys
 import glob
+import shutil
 from argparse import ArgumentParser
 from astropy.io import fits
 from desiutil.log import get_logger, DEBUG
+
+
+log = None
 
 
 def _options():
@@ -54,7 +58,6 @@ def tiles(release, specprod, survey):
     :class:`list`
         The list of tiles from `survey`.
     """
-    log = get_logger()
     tiles_file = os.path.join(os.environ['DESI_ROOT'], 'public', release,
                               'spectro', 'redux',
                               specprod, f'tiles-{specprod}.fits')
@@ -65,6 +68,46 @@ def tiles(release, specprod, survey):
     return data['TILEID'][w].tolist()
 
 
+def process_tile(tileid, release, survey, test_mode):
+    """Process intermediate files associated with `tileid`.
+
+    Parameters
+    ----------
+    tileid : class`int`
+        The unique tile number.
+    release : :class:`str`
+        Data release, *e.g.* 'dr1'.
+    survey : :class:`str`
+        Return tiles from this survey.
+    test_mode : :class:`bool`
+        If ``True``, do not make any changes.
+
+    Returns
+    -------
+    Something
+    """
+    tilegroup = tileid//1000
+    tilegroup_string = f"{tilegroup:03d}"
+    tileid_string = f"{tileid:06d}"
+    src = os.path.join(os.environ['DESI_ROOT'], 'survey', 'fiberassign', survey, tilegroup_string)
+    dst = os.path.join(os.environ['DESI_ROOT'], release, 'survey', 'fiberassign', survey, tilegroup_string)
+    assert os.path.isdir(src)
+    if not os.path.isdir(dst):
+        log.debug("os.makedirs('%s')", dst)
+        if not test_mode:
+            os.makedirs(dst)
+    log.debug("glob.glob(os.path.join('%s', '*%s*'))", src, tileid_string)
+    tileid_files = glob.glob(os.path.join(src, f"*{tileid_string}*"))
+    for tileid_file in tileid_files:
+        tf = os.path.basename(tileid_file)
+        log.debug("shutil.move('%s', '%s')", tileid_file, dst)
+        log.debug("os.symlink('', '')", os.path.join(dst, tf), tileid_file)
+        if not test_mode:
+            shutil.move(tileid_file, dst)
+            os.symlink(os.path.join(dst, tf), tileid_file)
+    return
+
+
 def main():
     """Entry-point for command-line scripts.
 
@@ -73,14 +116,16 @@ def main():
     :class:`int`
         An integer suitable for passing to :func:`sys.exit`.
     """
+    global log
     options = _options()
     if options.verbose:
         log = get_logger()
     else:
         log = get_logger(DEBUG)
     tileids = tiles(options.release, options.specprod, options.survey)
-    print(tileids)
     log.debug("len(tileids) == %d", len(tileids))
+    for tileid in tileids:
+        process_tile(tileid, options.release, options.survey, options.test)
     return 0
 
 
