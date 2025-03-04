@@ -90,7 +90,7 @@ def process_tile(tileid, release, survey, test_mode):
     tilegroup_string = f"{tilegroup:03d}"
     tileid_string = f"{tileid:06d}"
     src = os.path.join(os.environ['DESI_ROOT'], 'survey', 'fiberassign', survey, tilegroup_string)
-    dst = os.path.join(os.environ['DESI_ROOT'], release, 'survey', 'fiberassign', survey, tilegroup_string)
+    dst = os.path.join(os.environ['DESI_ROOT'], 'public', release, 'survey', 'fiberassign', survey, tilegroup_string)
     assert os.path.isdir(src)
     if not os.path.isdir(dst):
         log.debug("os.makedirs('%s')", dst)
@@ -99,9 +99,10 @@ def process_tile(tileid, release, survey, test_mode):
     log.debug("glob.glob(os.path.join('%s', '*%s*'))", src, tileid_string)
     tileid_files = glob.glob(os.path.join(src, f"*{tileid_string}*"))
     for tileid_file in tileid_files:
+        rel_dst = dst.replace(os.environ['DESI_ROOT'], '../../../..')
         tf = os.path.basename(tileid_file)
         log.debug("shutil.move('%s', '%s')", tileid_file, dst)
-        log.debug("os.symlink('%s', '%s')", os.path.join(dst, tf), tileid_file)
+        log.debug("os.symlink('%s', '%s')", os.path.join(rel_dst, tf), tileid_file)
         if not test_mode:
             shutil.move(tileid_file, dst)
             os.symlink(os.path.join(dst, tf), tileid_file)
