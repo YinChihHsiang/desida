@@ -11,6 +11,7 @@ import sys
 import glob
 from argparse import ArgumentParser
 from astropy.io import fits
+from desiutil.log import get_logger, DEBUG
 
 
 def _options():
@@ -18,6 +19,8 @@ def _options():
 
     Returns
     -------
+    :class:`argparse.Namespace`
+        The parsed options.
     """
     prsr = ArgumentParser(prog=os.path.basename(sys.argv[0]),
                           description='Create intermediate fiberassign directories.')
@@ -27,6 +30,10 @@ def _options():
                       help='Work with this specprod (default %(default)s).')
     prsr.add_argument('-S', '--survey', default='main', metavar='SURVEY',
                       help='Work with tiles from this survey (default %(default)s).')
+    prsr.add_argument('-t', '--test', action='store_true',
+                      help="Test mode. Do not make any changes.")
+    prsr.add_argument('-v', '--verbose', action='store_true',
+                      help="Turn on debug-level logging.")
     return prsr.parse_args()
 
 
@@ -47,11 +54,13 @@ def tiles(release, specprod, survey):
     :class:`list`
         The list of tiles from `survey`.
     """
+    log = get_logger()
     tiles_file = os.path.join(os.environ['DESI_ROOT'], 'public', release,
                               'spectro', 'redux',
                               specprod, f'tiles-{specprod}.fits')
+    log.debug("tiles_file = '%s'", tiles_file)
     with fits.open(tiles_file, mode='readonly') as hdulist:
-        data = hdulist['TILES'].data
+        data = hdulist['TILE_COMPLETENESS'].data
     w = data['SURVEY'] == survey
     return data['TILEID'][w].tolist()
 
@@ -65,8 +74,13 @@ def main():
         An integer suitable for passing to :func:`sys.exit`.
     """
     options = _options()
+    if options.verbose:
+        log = get_logger()
+    else:
+        log = get_logger(DEBUG)
     tileids = tiles(options.release, options.specprod, options.survey)
     print(tileids)
+    log.debug("len(tileids) == %d", len(tileids))
     return 0
 
 
