@@ -28,6 +28,8 @@ def _options():
     """
     prsr = ArgumentParser(prog=os.path.basename(sys.argv[0]),
                           description='Create intermediate fiberassign directories.')
+    prsr.add_argument('-l', '--limit', type=int, metavar='N',
+                      help='Limit moves to N tiles. Default is all tiles.')
     prsr.add_argument('-r', '--release', default='dr1', metavar='RELEASE',
                       help='Data release (default %(default)s).')
     prsr.add_argument('-s', '--specprod', default='iron', metavar='SPECPROD',
@@ -105,7 +107,7 @@ def process_tile(tileid, release, survey, test_mode):
         log.debug("os.symlink('%s', '%s')", os.path.join(rel_dst, tf), tileid_file)
         if not test_mode:
             shutil.move(tileid_file, dst)
-            os.symlink(os.path.join(dst, tf), tileid_file)
+            os.symlink(os.path.join(rel_dst, tf), tileid_file)
     return
 
 
@@ -125,7 +127,11 @@ def main():
         log = get_logger(DEBUG)
     tileids = tiles(options.release, options.specprod, options.survey)
     log.debug("len(tileids) == %d", len(tileids))
-    for tileid in tileids:
+    if options.limit is None:
+        limit = len(tileids)
+    else:
+        limit = options.limit
+    for tileid in tileids[:limit]:
         process_tile(tileid, options.release, options.survey, options.test)
     return 0
 
