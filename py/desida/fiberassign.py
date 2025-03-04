@@ -65,7 +65,7 @@ def main():
         An integer suitable for passing to :func:`sys.exit`.
     """
     options = _options()
-    tileids = tiles(options.release, options.release, 'main')
+    tileids = tiles(options.release, options.specprod, options.survey)
     print(tileids)
     return 0
 
