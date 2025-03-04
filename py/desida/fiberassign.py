@@ -101,7 +101,7 @@ def process_tile(tileid, release, survey, test_mode):
     for tileid_file in tileid_files:
         tf = os.path.basename(tileid_file)
         log.debug("shutil.move('%s', '%s')", tileid_file, dst)
-        log.debug("os.symlink('', '')", os.path.join(dst, tf), tileid_file)
+        log.debug("os.symlink('%s', '%s')", os.path.join(dst, tf), tileid_file)
         if not test_mode:
             shutil.move(tileid_file, dst)
             os.symlink(os.path.join(dst, tf), tileid_file)
