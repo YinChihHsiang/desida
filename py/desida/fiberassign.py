@@ -102,7 +102,7 @@ def process_tile(tileid, release, survey, test_mode):
     tileid_files = glob.glob(os.path.join(src, f"*{tileid_string}*"))
     for tileid_file in tileid_files:
         if os.path.islink(tileid_file):
-            log.warning("%s is already a symlink, skipping.")
+            log.warning("%s is already a symlink, skipping.", tileid_file)
         else:
             rel_dst = dst.replace(os.environ['DESI_ROOT'], '../../../..')
             tf = os.path.basename(tileid_file)
