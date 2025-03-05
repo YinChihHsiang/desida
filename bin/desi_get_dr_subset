@@ -240,13 +240,12 @@ def get_tile_date(remote_base_url, tileid, specprod, auth=None):
     
     return max(date_dirs) if date_dirs else None
 
-def analyze_tiles(redrock_file, max_tiles=1):
+def analyze_tiles(redrock_file):
     """
     Analyze tileIDs from redrock file and return top N tiles by target count
     
     Parameters:
         redrock_file (str): Path to redrock FITS file
-        max_tiles (int): Maximum number of tiles to return
     """
     try:
         r = Table.read(redrock_file, hdu=3)
@@ -260,11 +259,8 @@ def analyze_tiles(redrock_file, max_tiles=1):
         print("\nTile analysis (sorted by target count):")
         for tileid, count in zip(sorted_tileids, sorted_counts):
             print(f"TILEID {tileid}: {count} targets")
-        
-        # Return top N tiles
-        top_tiles = sorted_tileids[:max_tiles]
-        print(f"\nSelecting top {max_tiles} tiles: {', '.join(map(str, top_tiles))}")
-        return top_tiles
+
+        return sorted_tileids
     except Exception as e:
         print(f"Error analyzing redrock file: {str(e)}")
         return None
@@ -335,20 +331,20 @@ def get_base_url(data_release=None, specprod=None):
 def main():
     """
     Main function to run the DESI data downloader.
-    Default coordinates (RA=150.11916667, Dec=2.20583333) point to the center of the 
-    COSMOS field, which typically results in downloading healpix 23040 for tutorial purposes.
+    Default coordinates (RA=55, Dec=-9), which typically results in downloading healpix 23040 for tutorial purposes.
     """
     parser = argparse.ArgumentParser(
         description='Download DESI data for targets near a position. The default coordinates '
-                    'target the center of the COSMOS field, which typically retrieves healpix '
+                    'target the RA,Dec=55,-9.0, which typically retrieves healpix '
                     '23040 for tutorial purposes.')
-    parser.add_argument('--ra', type=float, default=150.11916667, 
-                        help='Center right ascension in degrees (default: 150.11916667, COSMOS field center)')
-    parser.add_argument('--dec', type=float, default=2.20583333, 
-                        help='Center declination in degrees (default: 2.20583333, COSMOS field center)')
-    parser.add_argument('--radius', type=float, default=0.5, help='Search radius in degrees (default: 0.5)')
+    parser.add_argument('--ra', type=float, default=56.0, 
+                        help='Center right ascension in degrees (default: 55)')
+    parser.add_argument('--dec', type=float, default=-9.0, 
+                        help='Center declination in degrees (default: -9)')
+    parser.add_argument('--radius', type=float, default=0.1, help='Search radius in degrees (default: 0.1)')
     parser.add_argument('--dr', default='dr1', help='Data release (e.g., dr1, dr2). Default: dr1')
     parser.add_argument('--specprod', help='Spectroscopic production name (e.g., iron, loa)')
+    parser.add_argument('--no-tiles', action='store_true', help='Download only healpix data, skip tile data')
     
     # Default output directory based on data release
     default_dir = lambda dr: f"./tiny_{dr.lower()}"
@@ -383,7 +379,7 @@ def main():
     print(f"Using spectroscopic production: {specprod}")
     print(f"Files will be saved to {local_base_path}")
     print(f"\nSearching for targets around RA={args.ra}, Dec={args.dec} with radius={args.radius} degrees")
-    print("(Default coordinates target the COSMOS field center, typically retrieving healpix 23040)")
+    print("(Default coordinates retrieve healpix 23040)")
     
     # First download the tiles and exposures CSV files
     print("\nDownloading tile and exposure CSV files...")
@@ -429,31 +425,35 @@ def main():
     healpix_url = f"{remote_base_url}spectro/redux/{specprod}/healpix/main/dark/{healpix_path}/"
     success = download_directory(healpix_url, local_base_path, remote_base_url, auth)
     
-    # Analyze redrock file
-    redrock_file = os.path.join(local_base_path, 
-                               f'spectro/redux/{specprod}/healpix/main/dark/{healpix_path}',
-                               f'redrock-main-dark-{healpix_id}.fits')
-    
-    print("\nAnalyzing redrock file for tileIDs...")
-    tileids = analyze_tiles(redrock_file)
-    
-    if tileids is not None:
-        # Download tile data
-        print("\nDownloading tile data...")
-        for tileid in tileids:
-            print(f"\nProcessing TILEID {tileid}...")
-            
-            # Get the date directory
-            date = get_tile_date(remote_base_url, tileid, specprod, auth)
-            if date is None:
-                print(f"Could not find date directory for tile {tileid}")
-                continue
+    # Skip tile downloads if --no-tiles is specified
+    if args.no_tiles:
+        print("\nSkipping tile data downloads (--no-tiles option specified)")
+    else:
+        # Analyze redrock file
+        redrock_file = os.path.join(local_base_path, 
+                                  f'spectro/redux/{specprod}/healpix/main/dark/{healpix_path}',
+                                  f'redrock-main-dark-{healpix_id}.fits')
+        
+        print("\nAnalyzing redrock file for tileIDs...")
+        tileids = analyze_tiles(redrock_file)
+        
+        if tileids is not None:
+            # Download tile data
+            print("\nDownloading tile data...")
+            for tileid in tileids:
+                print(f"\nProcessing TILEID {tileid}...")
                 
-            print(f"Found date directory: {date}")
-            
-            # Construct tile URL
-            tile_url = f"{remote_base_url}spectro/redux/{specprod}/tiles/cumulative/{tileid}/{date}/"
-            success &= download_directory(tile_url, local_base_path, remote_base_url, auth)
+                # Get the date directory
+                date = get_tile_date(remote_base_url, tileid, specprod, auth)
+                if date is None:
+                    print(f"Could not find date directory for tile {tileid}")
+                    continue
+                    
+                print(f"Found date directory: {date}")
+                
+                # Construct tile URL
+                tile_url = f"{remote_base_url}spectro/redux/{specprod}/tiles/cumulative/{tileid}/{date}/"
+                success &= download_directory(tile_url, local_base_path, remote_base_url, auth)
     
     if success:
         print("\nAll downloads completed successfully!")
