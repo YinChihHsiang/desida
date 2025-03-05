@@ -24,8 +24,23 @@ class Settings:
 
 # Dictionary mapping data releases to their primary specprod
 DR_SPECPROD_MAP = {
+    'edr': 'fuji',
     'dr1': 'iron', 
     'dr2': 'loa'
+}
+
+# Dictionary mapping data releases to their catalog path structure
+DR_CATALOG_PATH = {
+    'edr': 'zcatalog',      # EDR has no v1 subdirectory
+    'dr1': 'zcatalog/v1',
+    'dr2': 'zcatalog/v1'
+}
+
+# Dictionary mapping data releases to their healpix survey/program path
+DR_HEALPIX_PATH = {
+    'edr': 'sv3',          # EDR uses sv3/dark
+    'dr1': 'main',         # DR1/DR2 use main/dark
+    'dr2': 'main'
 }
 
 class DirListParser(HTMLParser):
@@ -270,8 +285,8 @@ def get_base_url(data_release=None, specprod=None):
     Determine the appropriate base URL based on data release and specprod.
     
     Parameters:
-        data_release (str): Data release identifier (e.g., 'dr1', 'dr2')
-        specprod (str): Spectroscopic production name (e.g., 'iron', 'loa')
+        data_release (str): Data release identifier (e.g., 'edr', 'dr1', 'dr2')
+        specprod (str): Spectroscopic production name (e.g., 'fuji', 'iron', 'loa')
         
     Returns:
         tuple: (base_url, specprod_to_use, requires_auth)
@@ -328,22 +343,56 @@ def get_base_url(data_release=None, specprod=None):
         base_url = 'https://data.desi.lbl.gov/public/dr1/'
         return base_url, 'iron', requires_auth
 
+def get_catalog_path(data_release, specprod):
+    """
+    Get the appropriate catalog path based on data release.
+    Different releases have different directory structures.
+    
+    Parameters:
+        data_release (str): Data release identifier (e.g., 'edr', 'dr1', 'dr2')
+        specprod (str): Spectroscopic production name
+        
+    Returns:
+        str: Catalog path for the given data release
+    """
+    # Use the mapping or default to zcatalog/v1
+    return DR_CATALOG_PATH.get(data_release, 'zcatalog/v1')
+
+def get_healpix_survey_path(data_release):
+    """
+    Get the appropriate healpix survey path based on data release.
+    Different releases use different survey/program paths.
+    
+    Parameters:
+        data_release (str): Data release identifier (e.g., 'edr', 'dr1', 'dr2')
+        
+    Returns:
+        str: Healpix survey path for the given data release
+    """
+    # Use the mapping or default to main
+    return DR_HEALPIX_PATH.get(data_release, 'main')
+
 def main():
     """
     Main function to run the DESI data downloader.
-    Default coordinates (RA=55, Dec=-9), which typically results in downloading healpix 23040 for tutorial purposes.
+    Default coordinates:
+    - For dr1/dr2: (RA=55, Dec=-9), which typically results in downloading healpix 23040 for tutorial purposes.
+    - For edr: (RA=179.6, Dec=0.0), which typically results in downloading healpix 26965 and 12 tiles
+      corresponding to Rosette 1 in the EDR paper (overlapping with GAMA G12 and KiDS-N).
     """
     parser = argparse.ArgumentParser(
         description='Download DESI data for targets near a position. The default coordinates '
-                    'target the RA,Dec=55,-9.0, which typically retrieves healpix '
-                    '23040 for tutorial purposes.')
-    parser.add_argument('--ra', type=float, default=56.0, 
-                        help='Center right ascension in degrees (default: 55)')
-    parser.add_argument('--dec', type=float, default=-9.0, 
-                        help='Center declination in degrees (default: -9)')
+                    'depend on data release: for dr1/dr2, RA=55, Dec=-9.0 (healpix 23040); '
+                    'for edr, RA=179.6, Dec=0.0 (healpix 26965, Rosette 1 field overlapping with GAMA G12 and KiDS-N).')
+    
+    # We'll set the default RA/Dec based on data release later
+    parser.add_argument('--ra', type=float, 
+                        help='Center right ascension in degrees (default depends on data release)')
+    parser.add_argument('--dec', type=float, 
+                        help='Center declination in degrees (default depends on data release)')
     parser.add_argument('--radius', type=float, default=0.1, help='Search radius in degrees (default: 0.1)')
-    parser.add_argument('--dr', default='dr1', help='Data release (e.g., dr1, dr2). Default: dr1')
-    parser.add_argument('--specprod', help='Spectroscopic production name (e.g., iron, loa)')
+    parser.add_argument('--dr', default='dr1', help='Data release (e.g., edr, dr1, dr2). Default: dr1')
+    parser.add_argument('--specprod', help='Spectroscopic production name (e.g., fuji, iron, loa)')
     parser.add_argument('--no-tiles', action='store_true', help='Download only healpix data, skip tile data')
     
     # Default output directory based on data release
@@ -351,6 +400,20 @@ def main():
     parser.add_argument('--base-dir', help=f'Base directory for downloads (default: depends on data release, e.g., ./tiny_dr1)')
     args = parser.parse_args()
     # No need to validate dr/specprod since dr has a default value
+    
+    # Set default RA/Dec based on data release
+    if args.dr == 'edr':
+        # Set edr-specific defaults if not provided
+        if args.ra is None:
+            args.ra = 179.6
+        if args.dec is None:
+            args.dec = 0.0
+    else:
+        # Set dr1/dr2 defaults if not provided
+        if args.ra is None:
+            args.ra = 56.0
+        if args.dec is None:
+            args.dec = -9.0
     
     # Determine the appropriate base URL and specprod
     remote_base_url, specprod, requires_auth = get_base_url(args.dr, args.specprod)
@@ -379,7 +442,13 @@ def main():
     print(f"Using spectroscopic production: {specprod}")
     print(f"Files will be saved to {local_base_path}")
     print(f"\nSearching for targets around RA={args.ra}, Dec={args.dec} with radius={args.radius} degrees")
-    print("(Default coordinates retrieve healpix 23040)")
+    
+    # Add appropriate message about default coordinates based on data release
+    if args.dr == 'edr':
+        print("(Default coordinates for EDR are RA=179.6, Dec=0.0, retrieving healpix 26965)")
+        print("(This corresponds to the Rosette 1 field in the EDR paper, overlapping with GAMA G12 and KiDS-N)")
+    else:
+        print("(Default coordinates for DR1/DR2 retrieve healpix 23040)")
     
     # First download the tiles and exposures CSV files
     print("\nDownloading tile and exposure CSV files...")
@@ -403,9 +472,12 @@ def main():
     # Download redshift catalog
     print("\nDownloading redshift catalog...")
     
+    # Get the appropriate catalog path based on data release
+    catalog_subpath = get_catalog_path(args.dr, specprod)
+    
     # Construct catalog URL
-    catalog_url = f"{remote_base_url}spectro/redux/{specprod}/zcatalog/v1/zall-pix-{specprod}.fits"
-    catalog_file = os.path.join(local_base_path, f'spectro/redux/{specprod}/zcatalog/v1/zall-pix-{specprod}.fits')
+    catalog_url = f"{remote_base_url}spectro/redux/{specprod}/{catalog_subpath}/zall-pix-{specprod}.fits"
+    catalog_file = os.path.join(local_base_path, f'spectro/redux/{specprod}/{catalog_subpath}/zall-pix-{specprod}.fits')
     
     success = download_file(catalog_url, catalog_file, auth=auth)
     
@@ -421,23 +493,31 @@ def main():
     print(f"\nDownloading files for healpix {healpix_id}...")
     prefix, healpix_path = get_healpix_path(healpix_id)
     
-    # Construct healpix URL
-    healpix_url = f"{remote_base_url}spectro/redux/{specprod}/healpix/main/dark/{healpix_path}/"
+    # Get the appropriate healpix survey path based on data release
+    healpix_survey = get_healpix_survey_path(args.dr)
+    
+    # Construct healpix URL with the correct survey path
+    healpix_url = f"{remote_base_url}spectro/redux/{specprod}/healpix/{healpix_survey}/dark/{healpix_path}/"
     success = download_directory(healpix_url, local_base_path, remote_base_url, auth)
     
     # Skip tile downloads if --no-tiles is specified
     if args.no_tiles:
         print("\nSkipping tile data downloads (--no-tiles option specified)")
     else:
-        # Analyze redrock file
+        # Analyze redrock file with the correct survey path
+        healpix_survey = get_healpix_survey_path(args.dr)
         redrock_file = os.path.join(local_base_path, 
-                                  f'spectro/redux/{specprod}/healpix/main/dark/{healpix_path}',
-                                  f'redrock-main-dark-{healpix_id}.fits')
+                                  f'spectro/redux/{specprod}/healpix/{healpix_survey}/dark/{healpix_path}',
+                                  f'redrock-{healpix_survey}-dark-{healpix_id}.fits')
         
         print("\nAnalyzing redrock file for tileIDs...")
         tileids = analyze_tiles(redrock_file)
         
         if tileids is not None:
+            # Report how many tiles will be downloaded
+            num_tiles = len(tileids)
+            print(f"\nPreparing to download data for {num_tiles} tiles...")
+            
             # Download tile data
             print("\nDownloading tile data...")
             for tileid in tileids:
