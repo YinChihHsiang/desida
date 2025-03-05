@@ -1,8 +1,8 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst.
 """
-==================
-desida.fiberassign
-==================
+==========================
+desida.archive_fiberassign
+==========================
 
 Tools for working with *intermediate* fiberassign files, *i.e.* ``${DESI_ROOT}/survey/fiberassign``.
 """
@@ -27,7 +27,7 @@ def _options():
         The parsed options.
     """
     prsr = ArgumentParser(prog=os.path.basename(sys.argv[0]),
-                          description='Create intermediate fiberassign directories.')
+                          description='Move and link intermediate desi/survey/fiberassign files for tiles in a data release.')
     prsr.add_argument('-l', '--limit', type=int, metavar='N',
                       help='Limit moves to N tiles. Default is all tiles.')
     prsr.add_argument('-r', '--release', default='dr1', metavar='RELEASE',
@@ -83,10 +83,6 @@ def process_tile(tileid, release, survey, test_mode):
         Return tiles from this survey.
     test_mode : :class:`bool`
         If ``True``, do not make any changes.
-
-    Returns
-    -------
-    Something
     """
     tilegroup = tileid//1000
     tilegroup_string = f"{tilegroup:03d}"
