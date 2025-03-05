@@ -121,9 +121,9 @@ def main():
     global log
     options = _options()
     if options.verbose:
-        log = get_logger()
-    else:
         log = get_logger(DEBUG)
+    else:
+        log = get_logger()
     tileids = tiles(options.release, options.specprod, options.survey)
     log.debug("len(tileids) == %d", len(tileids))
     if options.limit is None:
