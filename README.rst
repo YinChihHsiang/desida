@@ -10,6 +10,11 @@ Code, scripts and configuration to assist with DESI Data Assemblies and Releases
 Change Log
 ----------
 
+1.0.1 (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* No changes yet.
+
 1.0.0 (2025-03-18)
 ~~~~~~~~~~~~~~~~~~
 
