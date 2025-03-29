@@ -12,13 +12,14 @@ source ${DESIDA}/bin/desida_library.sh
 function usage() {
     local execName=$(basename $0)
     (
-    echo "${execName} [-h] [-t] [-v] [-V] RELEASE"
+    echo "${execName} [-h] [-j JOBS] [-t] [-v] [-V] RELEASE"
     echo ""
     echo "Prepare raw data (DESI_SPECTRO_DATA) for release."
     echo ""
     echo "Verify checksums, redo tape backups if necessary."
     echo ""
     echo "         -h = Print this message and exit."
+    echo "    -j JOBS = Use JOBS directory to write batch files (default ${DESI_ROOT}/users/${USER}/jobs)."
     echo "         -t = Test mode.  Do not actually make any changes. Implies -v."
     echo "         -v = Verbose mode. Print extra information."
     echo "         -V = Version.  Print a version string and exit."
@@ -28,11 +29,13 @@ function usage() {
 #
 # Get options.
 #
+jobs=${DESI_ROOT}/users/${USER}/jobs
 test=false
 verbose=false
 while getopts htvV argname; do
     case ${argname} in
         h) usage; exit 0 ;;
+        j) jobs=${OPTARG} ;;
         t) test=true; verbose=true ;;
         v) verbose=true ;;
         V) version; exit 0 ;;
@@ -111,6 +114,7 @@ for night in $(cat ${redo} | sort -n | uniq); do
 #SBATCH --time=12:00:00
 #SBATCH --mem=10GB
 #SBATCH --job-name=${job_name}
+#SBATCH --output=${jobs}/%x-%j.log
 #SBATCH --licenses=cfs,hpss
 cd ${DESI_SPECTRO_DATA}
 htar -cvf desi/spectro/data/${job_name}.tar -H crc:verify=all ${night}
