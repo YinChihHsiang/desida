@@ -107,10 +107,11 @@ done
 #
 for night in $(cat ${redo} | sort -n | uniq); do
     job_name=desi_spectro_data_${night}
-    cat > ${HOME}/jobs/${job_name}.sh <<EOT
+    cat > ${jobs}/${job_name}.sh <<EOT
 #!/bin/bash
 #SBATCH --account=desi
 #SBATCH --qos=xfer
+#SBATCH --constraint=cron
 #SBATCH --time=12:00:00
 #SBATCH --mem=10GB
 #SBATCH --job-name=${job_name}
@@ -118,8 +119,8 @@ for night in $(cat ${redo} | sort -n | uniq); do
 #SBATCH --licenses=cfs,hpss
 cd ${DESI_SPECTRO_DATA}
 htar -cvf desi/spectro/data/${job_name}.tar -H crc:verify=all ${night}
-[[ \$? == 0 ]] && mv -v /global/homes/d/desi/jobs/${job_name}.sh /global/homes/d/desi/jobs/done
+[[ \$? == 0 ]] && mv -v ${jobs}/${job_name}.sh ${jobs}/done
 EOT
 
-    chmod +x ${HOME}/jobs/${job_name}.sh
+    chmod +x ${jobs}/${job_name}.sh
 done
