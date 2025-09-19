@@ -1,6 +1,8 @@
-#!/usr/bin/env python3
 """
-Read a list of GitHub repository URLs and output a table with:
+desida.github
+=============
+
+Utilities to read a list of GitHub repository URLs and output a table with:
     - repository name (short name, e.g. "desispec")
     - latest tag
     - date of that tag (YEAR-MM-DD)
