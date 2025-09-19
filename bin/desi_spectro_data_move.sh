@@ -45,7 +45,7 @@ if [[ $# < 1 ]]; then
     exit 1
 fi
 release=$1
-if [[ "${release}" != "edr" && "${release}" != "dr1" ]]; then
+if [[ "${release}" != "edr" && "${release}" != "dr1" && "${release}" != "dr2" ]]; then
     echo "ERROR: Undefined release=${release}!"
     exit 1
 fi
