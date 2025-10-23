@@ -1,0 +1,43 @@
+name: Run desi_get_dr_subset
+
+on:
+  workflow_dispatch:  # 手动触发
+  push:
+    branches: [ main ]  # 或你要的分支
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy astropy fitsio requests urllib3
+
+      - name: Create credentials file (if secrets provided)
+        run: |
+          if [ -n "${{ secrets.DESI_USER }}" ] && [ -n "${{ secrets.DESI_PASSWD }}" ]; then
+            echo "${{ secrets.DESI_USER }}:${{ secrets.DESI_PASSWD }}" > $HOME/.desi_http_user
+            chmod 600 $HOME/.desi_http_user
+            echo "Created $HOME/.desi_http_user"
+          else
+            echo "No DESI credentials provided in secrets, proceeding without auth"
+          fi
+
+      - name: Run desi_get_dr_subset script
+        # 修改下面的参数以满足你的需求
+        run: |
+          python bin/desi_get_dr_subset --dr dr1 --ra 56 --dec -9 --radius 0.1 --base-dir ./tiny_dr1 --no-tiles
+
+      - name: List downloaded files (for debug)
+        run: |
+          echo "Files under workspace:"
+          ls -R .
